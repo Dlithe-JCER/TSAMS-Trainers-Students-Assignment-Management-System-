@@ -2,7 +2,6 @@ import express from 'express';
 import DailyLog from '../models/DailyLog.js';
 import SessionToken from '../models/SessionToken.js';
 import SessionAttendance from '../models/SessionAttendance.js';
-import pool from '../config/mysql.js';
 
 const GFORM_SUBMIT_URL =
   'https://docs.google.com/forms/d/e/1FAIpQLSewelbciXC3k9FzPPKyN427lqb-UjTsV3n2lihFigrolWk7wg/formResponse';
@@ -102,18 +101,6 @@ router.post('/generate', async (req, res) => {
       { upsert: true }
     );
 
-    // Log QR session in MySQL
-    try {
-      await pool.query(
-        `INSERT IGNORE INTO qr_sessions_log
-           (session_key, session_label, session_date, batch_name, college)
-         VALUES (?, ?, ?, ?, ?)`,
-        [session, SESSION_LABELS[session] || session, today, batchName, college || '']
-      );
-    } catch (mysqlErr) {
-      console.error('[MySQL] qr_sessions_log insert error:', mysqlErr.message);
-    }
-
     res.status(201).json({
       token: sessionToken.token,
       expiresAt: sessionToken.expiresAt,
@@ -193,30 +180,6 @@ router.post('/submit', async (req, res) => {
 
     // Mirror to Google Form → auto-appends row in linked Google Sheet
     submitToGoogleForm(studentName.trim(), usn.trim().toUpperCase(), st.date);
-
-    // Write attendance to MySQL
-    try {
-      await pool.query(
-        `INSERT INTO student_attendance
-           (usn, student_name, session_key, session_label, session_date,
-            batch_name, college, latitude, longitude)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE submitted_at = submitted_at`,
-        [
-          usn.trim().toUpperCase(),
-          studentName.trim(),
-          st.session,
-          SESSION_LABELS[st.session] || st.session,
-          st.date,
-          st.batchName,
-          st.college,
-          latitude ?? null,
-          longitude ?? null,
-        ]
-      );
-    } catch (mysqlErr) {
-      console.error('[MySQL] student_attendance insert error:', mysqlErr.message);
-    }
 
     res.status(201).json({ success: true, id: record._id });
   } catch (err) {

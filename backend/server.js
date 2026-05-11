@@ -2,7 +2,6 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import connectDB from './config/db.js';
-import { initMySQLTables } from './config/mysql.js';
 import trainersRouter from './routes/trainers.js';
 import submissionsRouter from './routes/submissions.js';
 import classroomsRouter from './routes/classrooms.js';
@@ -26,9 +25,6 @@ app.use(express.urlencoded({ extended: true }));
 
 // Connect to MongoDB
 connectDB();
-
-// Init MySQL attendance tables
-initMySQLTables();
 
 // Static uploaded TOC files
 const __filename = fileURLToPath(import.meta.url);
