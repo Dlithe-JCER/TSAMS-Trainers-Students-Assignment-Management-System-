@@ -9,7 +9,7 @@ router.get('/lookup', async (req, res) => {
     const { usn } = req.query;
     if (!usn) return res.status(400).json({ message: 'USN required' });
 
-    const student = await Student.findOne({ usn: usn.trim().toUpperCase() }).populate('batch', 'name');
+    const student = await Student.findOne({ usn: usn.trim().toUpperCase() });
     if (!student) return res.status(404).json({ message: 'Student not found' });
 
     res.json({
@@ -24,12 +24,12 @@ router.get('/lookup', async (req, res) => {
   }
 });
 
-// GET /api/students — list all (for admin/testing)
+// GET /api/students
 router.get('/', async (req, res) => {
   try {
-    const students = await Student.find().populate('batch', 'name').lean();
+    const students = await Student.find();
     res.json(students.map((s) => ({
-      _id: s._id,
+      _id: s.id,
       name: s.name,
       usn: s.usn,
       college: s.college,

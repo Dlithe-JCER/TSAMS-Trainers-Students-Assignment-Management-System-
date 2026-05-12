@@ -35,9 +35,7 @@ router.post(
   ],
   async (req, res) => {
     const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
     try {
       const { trainerName, college, assignmentName, batchName, topicsCovered, sessionDate, githubLink, assignmentLink, trainerId, classroom, morningSession1, morningSession2, afternoonSession1, afternoonSession2 } = req.body;
@@ -45,7 +43,7 @@ router.post(
       const classroomCollege = parseCollegeFromClassroom(classroom);
       const submissionData = {
         trainerName,
-        college: classroomCollege || college || undefined,
+        college: classroomCollege || college || null,
         assignmentName,
         batchName,
         topicsCovered,
@@ -53,7 +51,7 @@ router.post(
         githubLink,
         assignmentLink,
         trainerId: trainerId || null,
-        classroom: classroom || undefined,
+        classroom: classroom || null,
         morningSession1: Number(morningSession1) || 0,
         morningSession2: Number(morningSession2) || 0,
         afternoonSession1: Number(afternoonSession1) || 0,
@@ -63,23 +61,13 @@ router.post(
       if (trainerId) {
         const trainer = await Trainer.findById(trainerId);
         if (trainer) {
-          if (!submissionData.college) {
-            submissionData.college = trainer.college || trainer.allottedCollege || undefined;
-          }
-          if (!submissionData.assignmentName && trainer.assignmentName) {
-            submissionData.assignmentName = trainer.assignmentName;
-          }
+          if (!submissionData.college) submissionData.college = trainer.college || trainer.allottedCollege || null;
+          if (!submissionData.assignmentName && trainer.assignmentName) submissionData.assignmentName = trainer.assignmentName;
         }
       }
 
-      const submission = new Submission(submissionData);
-
-      await submission.save();
-
-      res.status(201).json({
-        message: 'Submission created successfully',
-        submission,
-      });
+      const submission = await Submission.create(submissionData);
+      res.status(201).json({ message: 'Submission created successfully', submission });
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Server error', error: error.message });
@@ -87,45 +75,37 @@ router.post(
   }
 );
 
-// Get distinct assignment names for the admin's accessible college(s)
+// Get distinct assignment names
 router.get('/assignment-names', adminAuth, async (req, res) => {
   try {
     const collegeFilter = getAdminCollegeFilter(req.user);
     const college = req.query.college || collegeFilter;
-    const query = college ? { college } : {};
-    const names = await Submission.distinct('assignmentName', {
-      ...query,
-      assignmentName: { $exists: true, $nin: [null, ''] },
-    });
-    res.json(names.filter(Boolean).sort());
+    const conditions = {};
+    if (college) conditions.college = college;
+    const names = await Submission.distinct('assignmentName', conditions);
+    res.json(names);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
-// Get all submissions (Admin only)
+// Get all submissions (admin only)
 router.get('/', adminAuth, async (req, res) => {
   try {
     const collegeFilter = getAdminCollegeFilter(req.user);
-    const query = collegeFilter ? { college: collegeFilter } : {};
-    if (req.query.assignmentName) {
-      query.assignmentName = req.query.assignmentName;
-    }
+    const conditions = {};
+    if (collegeFilter) conditions.college = collegeFilter;
+    if (req.query.assignmentName) conditions.assignmentName = req.query.assignmentName;
 
-    const submissions = await Submission.find(query)
-      .populate('trainerId', 'name email college')
-      .sort({ createdAt: -1 });
-
-    const submissionsWithCollege = submissions.map((submission) => {
-      const sub = submission.toObject();
+    const submissions = await Submission.find(conditions);
+    const result = submissions.map((sub) => {
       if (!sub.college) {
         sub.college = parseCollegeFromClassroom(sub.classroom) || sub.trainerId?.college;
       }
       return sub;
     });
-
-    res.json(submissionsWithCollege);
+    res.json(result);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -135,10 +115,7 @@ router.get('/', adminAuth, async (req, res) => {
 // Get submissions by trainer
 router.get('/trainer/:trainerId', auth, async (req, res) => {
   try {
-    const submissions = await Submission.find({
-      trainerId: req.params.trainerId,
-    }).sort({ createdAt: -1 });
-
+    const submissions = await Submission.find({ trainerId: req.params.trainerId });
     res.json(submissions);
   } catch (error) {
     console.error(error);
@@ -149,12 +126,8 @@ router.get('/trainer/:trainerId', auth, async (req, res) => {
 // Get single submission
 router.get('/:id', auth, async (req, res) => {
   try {
-    const submission = await Submission.findById(req.params.id).populate('trainerId', 'name email');
-
-    if (!submission) {
-      return res.status(404).json({ message: 'Submission not found' });
-    }
-
+    const submission = await Submission.findById(req.params.id);
+    if (!submission) return res.status(404).json({ message: 'Submission not found' });
     res.json(submission);
   } catch (error) {
     console.error(error);
@@ -175,36 +148,29 @@ router.put(
   ],
   async (req, res) => {
     const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
     try {
-      let submission = await Submission.findById(req.params.id);
+      const submission = await Submission.findById(req.params.id);
+      if (!submission) return res.status(404).json({ message: 'Submission not found' });
 
-      if (!submission) {
-        return res.status(404).json({ message: 'Submission not found' });
-      }
-
-      // Check if user owns this submission
-      if (!submission.trainerId || submission.trainerId.toString() !== req.trainerId) {
+      const ownerId = typeof submission.trainerId === 'object'
+        ? submission.trainerId?.id
+        : submission.trainerId;
+      if (!ownerId || ownerId !== req.trainerId) {
         return res.status(403).json({ message: 'Not authorized to update this submission' });
       }
 
       const { batchName, topicsCovered, sessionDate, githubLink, assignmentLink } = req.body;
+      const updates = {};
+      if (batchName) updates.batchName = batchName;
+      if (topicsCovered) updates.topicsCovered = topicsCovered;
+      if (sessionDate) updates.sessionDate = sessionDate;
+      if (githubLink) updates.githubLink = githubLink;
+      if (assignmentLink) updates.assignmentLink = assignmentLink;
 
-      if (batchName) submission.batchName = batchName;
-      if (topicsCovered) submission.topicsCovered = topicsCovered;
-      if (sessionDate) submission.sessionDate = sessionDate;
-      if (githubLink) submission.githubLink = githubLink;
-      if (assignmentLink) submission.assignmentLink = assignmentLink;
-
-      await submission.save();
-
-      res.json({
-        message: 'Submission updated successfully',
-        submission,
-      });
+      const updated = await Submission.findByIdAndUpdate(req.params.id, updates);
+      res.json({ message: 'Submission updated successfully', submission: updated });
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Server error', error: error.message });
@@ -212,53 +178,43 @@ router.put(
   }
 );
 
-// Approve/Reject submission (Admin only)
-router.put('/:id/review', adminAuth, [body('status').isIn(['approved', 'rejected']).withMessage('Invalid status'), body('feedback').optional().isString()], async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
+// Approve/Reject submission (admin only)
+router.put('/:id/review', adminAuth,
+  [body('status').isIn(['approved', 'rejected']).withMessage('Invalid status'), body('feedback').optional().isString()],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-  try {
-    const { status, feedback } = req.body;
+    try {
+      const { status, feedback } = req.body;
+      const submission = await Submission.findById(req.params.id);
+      if (!submission) return res.status(404).json({ message: 'Submission not found' });
 
-    let submission = await Submission.findById(req.params.id);
-
-    if (!submission) {
-      return res.status(404).json({ message: 'Submission not found' });
+      const updates = { status };
+      if (feedback) updates.feedback = feedback;
+      const updated = await Submission.findByIdAndUpdate(req.params.id, updates);
+      res.json({ message: 'Submission reviewed successfully', submission: updated });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Server error', error: error.message });
     }
-
-    submission.status = status;
-    if (feedback) submission.feedback = feedback;
-
-    await submission.save();
-
-    res.json({
-      message: 'Submission reviewed successfully',
-      submission,
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error', error: error.message });
   }
-});
+);
 
-// Delete submission (Admin or owner)
+// Delete submission (owner only)
 router.delete('/:id', auth, async (req, res) => {
   try {
     const submission = await Submission.findById(req.params.id);
+    if (!submission) return res.status(404).json({ message: 'Submission not found' });
 
-    if (!submission) {
-      return res.status(404).json({ message: 'Submission not found' });
-    }
-
-    // Check if user owns this submission or is admin
-    if (!submission.trainerId || submission.trainerId.toString() !== req.trainerId) {
+    const ownerId = typeof submission.trainerId === 'object'
+      ? submission.trainerId?.id
+      : submission.trainerId;
+    if (!ownerId || ownerId !== req.trainerId) {
       return res.status(403).json({ message: 'Not authorized to delete this submission' });
     }
 
     await Submission.findByIdAndDelete(req.params.id);
-
     res.json({ message: 'Submission deleted successfully' });
   } catch (error) {
     console.error(error);

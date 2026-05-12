@@ -18,20 +18,17 @@ dotenv.config();
 
 const app = express();
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Connect to MongoDB
-connectDB();
+// Connect to Neon PostgreSQL and initialize schema
+await connectDB();
 
-// Static uploaded TOC files
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Routes
 app.use('/api/trainers', trainersRouter);
 app.use('/api/submissions', submissionsRouter);
 app.use('/api/classrooms', classroomsRouter);
@@ -42,12 +39,10 @@ app.use('/api/attendance', attendanceRouter);
 app.use('/api/students', studentsRouter);
 app.use('/api/sessions', sessionsRouter);
 
-// Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ message: 'Server is running' });
+  res.json({ message: 'Server is running', db: 'Neon PostgreSQL' });
 });
 
-// Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({
@@ -56,13 +51,11 @@ app.use((err, req, res, next) => {
   });
 });
 
-// 404 handler
 app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
 const PORT = process.env.PORT || 5000;
-
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });

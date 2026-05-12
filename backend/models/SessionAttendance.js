@@ -1,24 +1,43 @@
-import mongoose from 'mongoose';
+import { sql } from '../config/db.js';
 
-const sessionAttendanceSchema = new mongoose.Schema(
-  {
-    studentName: { type: String, required: true, trim: true },
-    usn:         { type: String, required: true, trim: true },
-    batchId:     { type: mongoose.Schema.Types.ObjectId, ref: 'Batch' },
-    batchName:   { type: String, required: true, trim: true },
-    college:     { type: String, required: true, trim: true },
-    session:     {
-      type: String,
-      required: true,
-      enum: ['morning1', 'morning2', 'afternoon1', 'afternoon2'],
-    },
-    latitude:    { type: Number, default: null },
-    longitude:   { type: Number, default: null },
-    submittedAt: { type: Date, default: Date.now },
+function mapRow(row) {
+  if (!row) return null;
+  return {
+    _id: row.id,
+    id: row.id,
+    studentName: row.student_name,
+    usn: row.usn,
+    batchId: row.batch_id,
+    batchName: row.batch_name,
+    college: row.college,
+    session: row.session,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    submittedAt: row.submitted_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+const SessionAttendance = {
+  async create(data) {
+    const rows = await sql.query(
+      `INSERT INTO session_attendance
+         (student_name, usn, batch_id, batch_name, college, session, latitude, longitude)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [
+        data.studentName,
+        data.usn,
+        data.batchId || null,
+        data.batchName,
+        data.college,
+        data.session,
+        data.latitude ?? null,
+        data.longitude ?? null,
+      ]
+    );
+    return mapRow(rows[0]);
   },
-  { timestamps: true }
-);
-
-const SessionAttendance = mongoose.model('SessionAttendance', sessionAttendanceSchema);
+};
 
 export default SessionAttendance;

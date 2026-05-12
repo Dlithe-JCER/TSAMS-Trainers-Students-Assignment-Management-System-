@@ -23,10 +23,12 @@ router.get('/', adminAuth, async (req, res) => {
     const summaries = {};
 
     for (const college of colleges) {
-      const activeBatches = await Batch.countDocuments({ college, status: 'active' });
-      const technicalBatches = await Batch.countDocuments({ college, status: 'active', type: 'technical' });
-      const nonTechnicalBatches = await Batch.countDocuments({ college, status: 'active', type: 'non-technical' });
-      const trainers = await Trainer.countDocuments({ college });
+      const [activeBatches, technicalBatches, nonTechnicalBatches, trainers] = await Promise.all([
+        Batch.countDocuments({ college, status: 'active' }),
+        Batch.countDocuments({ college, status: 'active', type: 'technical' }),
+        Batch.countDocuments({ college, status: 'active', type: 'non-technical' }),
+        Trainer.countDocuments({ college }),
+      ]);
       summaries[college] = { activeBatches, technicalBatches, nonTechnicalBatches, trainers };
     }
 
