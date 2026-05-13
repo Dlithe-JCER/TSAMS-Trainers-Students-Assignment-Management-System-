@@ -2,12 +2,15 @@ services:
   - type: web
     name: tsams-app
     runtime: node
-    buildCommand: npm install && npm run build && cd backend && npm install
+    rootDir: .
+    buildCommand: npm install --include=dev && npm run build && cd backend && npm install --omit=dev
     startCommand: node backend/server.js
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: 20.11.0
       - key: DATABASE_URL
         sync: false
       - key: JWT_SECRET

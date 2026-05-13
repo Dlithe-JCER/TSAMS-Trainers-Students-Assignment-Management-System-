@@ -53,13 +53,19 @@ app.get('/api/health', (req, res) => {
   res.json({ message: 'Server is running', db: 'Neon PostgreSQL' });
 });
 
-// Serve frontend static build (production)
-const distPath = path.join(__dirname, '../dist');
-app.use(express.static(distPath));
+// Serve frontend static build
+const distPath = path.resolve(__dirname, '../dist');
+app.use(express.static(distPath, { index: false }));
 
-// SPA fallback — all non-API routes serve index.html
-app.get('*', (req, res) => {
-  res.sendFile(path.join(distPath, 'index.html'));
+// SPA fallback — serves index.html for all non-API routes
+app.get('*', (req, res, next) => {
+  const indexFile = path.join(distPath, 'index.html');
+  res.sendFile(indexFile, (err) => {
+    if (err) {
+      console.error('sendFile error:', err.message);
+      res.status(503).send('Frontend not available. Build may not have completed.');
+    }
+  });
 });
 
 app.use((err, req, res, next) => {
