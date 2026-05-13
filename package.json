@@ -3,9 +3,10 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
+    "start": "node backend/server.js",
+    "build": "cd frontend && npm install --include=dev && npm run build",
     "dev:frontend": "cd frontend && npm run dev",
-    "dev:backend": "cd backend && npm run dev",
-    "build": "cd frontend && npm install --include=dev && npm run build"
+    "dev:backend": "cd backend && npm run dev"
   },
   "engines": {
     "node": ">=18.0.0"
