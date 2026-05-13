@@ -3,7 +3,7 @@ services:
     name: tsams-app
     runtime: node
     rootDir: .
-    buildCommand: npm install --include=dev && npm run build && cd backend && npm install --omit=dev
+    buildCommand: cd frontend && npm install --include=dev && npm run build && cd ../backend && npm install --omit=dev
     startCommand: node backend/server.js
     healthCheckPath: /api/health
     envVars:

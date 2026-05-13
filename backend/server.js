@@ -18,17 +18,7 @@ dotenv.config();
 
 const app = express();
 
-const allowedOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
-  : ['http://localhost:5173', 'http://localhost:4173'];
-
-app.use(cors({
-  origin: (origin, cb) => {
-    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
-    cb(new Error(`CORS: origin ${origin} not allowed`));
-  },
-  credentials: true,
-}));
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -54,7 +44,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // Serve frontend static build
-const distPath = path.resolve(__dirname, '../dist');
+const distPath = path.resolve(__dirname, '../frontend/dist');
 app.use(express.static(distPath, { index: false }));
 
 // SPA fallback — serves index.html for all non-API routes

@@ -1,0 +1,103 @@
+{
+  "hash": "6aca8128",
+  "configHash": "15995efc",
+  "lockfileHash": "71d21dfb",
+  "browserHash": "a39175f5",
+  "optimized": {
+    "docx": {
+      "src": "../../node_modules/docx/dist/index.mjs",
+      "file": "docx.js",
+      "fileHash": "5aa98a1b",
+      "needsInterop": false
+    },
+    "html5-qrcode": {
+      "src": "../../node_modules/html5-qrcode/esm/index.js",
+      "file": "html5-qrcode.js",
+      "fileHash": "1d5a25a5",
+      "needsInterop": false
+    },
+    "jspdf": {
+      "src": "../../node_modules/jspdf/dist/jspdf.es.min.js",
+      "file": "jspdf.js",
+      "fileHash": "05ee1ee5",
+      "needsInterop": false
+    },
+    "jspdf-autotable": {
+      "src": "../../node_modules/jspdf-autotable/dist/jspdf.plugin.autotable.mjs",
+      "file": "jspdf-autotable.js",
+      "fileHash": "a4726267",
+      "needsInterop": false
+    },
+    "lucide-react": {
+      "src": "../../node_modules/lucide-react/dist/esm/lucide-react.js",
+      "file": "lucide-react.js",
+      "fileHash": "ba069ecb",
+      "needsInterop": false
+    },
+    "next-themes": {
+      "src": "../../node_modules/next-themes/dist/index.mjs",
+      "file": "next-themes.js",
+      "fileHash": "7716b3e6",
+      "needsInterop": false
+    },
+    "react": {
+      "src": "../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "1ebf9423",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "c732b3be",
+      "needsInterop": true
+    },
+    "react-qr-code": {
+      "src": "../../node_modules/react-qr-code/lib/index.js",
+      "file": "react-qr-code.js",
+      "fileHash": "6bdc2140",
+      "needsInterop": true
+    },
+    "react-router": {
+      "src": "../../node_modules/react-router/dist/development/index.mjs",
+      "file": "react-router.js",
+      "fileHash": "f30678d2",
+      "needsInterop": false
+    },
+    "sonner": {
+      "src": "../../node_modules/sonner/dist/index.mjs",
+      "file": "sonner.js",
+      "fileHash": "bc0c70d0",
+      "needsInterop": false
+    },
+    "xlsx": {
+      "src": "../../node_modules/xlsx/xlsx.mjs",
+      "file": "xlsx.js",
+      "fileHash": "87a5eef9",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "html2canvas.esm-G2ZJPYV4": {
+      "file": "html2canvas__esm-G2ZJPYV4.js"
+    },
+    "purify.es-OIKSFMOQ": {
+      "file": "purify__es-OIKSFMOQ.js"
+    },
+    "index.es-AAB7XZU7": {
+      "file": "index__es-AAB7XZU7.js"
+    },
+    "chunk-UP6LQVYV": {
+      "file": "chunk-UP6LQVYV.js"
+    },
+    "chunk-SITVF2AJ": {
+      "file": "chunk-SITVF2AJ.js"
+    },
+    "chunk-TWJRYSII": {
+      "file": "chunk-TWJRYSII.js"
+    },
+    "chunk-DC5AMYBS": {
+      "file": "chunk-DC5AMYBS.js"
+    }
+  }
+}
