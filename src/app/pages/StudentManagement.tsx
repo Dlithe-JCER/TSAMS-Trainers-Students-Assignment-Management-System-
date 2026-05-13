@@ -326,12 +326,14 @@ export default function StudentManagement() {
           <h1 className="text-2xl text-red-700 mb-1">Student Management</h1>
           <p className="text-muted-foreground text-sm">Manage student records across colleges and batches</p>
         </div>
-        <button
-          onClick={openAdd}
-          className="flex items-center gap-2 px-4 py-2 bg-red-700 text-white text-sm hover:bg-red-900 transition-colors"
-        >
-          <Plus className="w-4 h-4" /> Add Student
-        </button>
+        {isSuperAdmin && (
+          <button
+            onClick={openAdd}
+            className="flex items-center gap-2 px-4 py-2 bg-red-700 text-white text-sm hover:bg-red-900 transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Add Student
+          </button>
+        )}
       </div>
 
       {/* Filters */}
@@ -386,14 +388,18 @@ export default function StudentManagement() {
       <div className="bg-card border border-border p-5 mb-5">
         <h2 className="text-sm font-medium text-card-foreground mb-3">Bulk Import / Export</h2>
         <div className="flex flex-wrap gap-3 items-center">
-          <label className="flex items-center gap-2 px-4 py-2 border border-border text-sm text-foreground hover:bg-muted cursor-pointer transition-colors">
-            <Upload className="w-4 h-4" />
-            Import Excel
-            <input type="file" accept=".xlsx,.xls,.csv" onChange={handleImportFile} className="hidden" />
-          </label>
-          <button onClick={downloadTemplate} className="flex items-center gap-2 px-4 py-2 border border-border text-sm hover:bg-muted transition-colors">
-            <Download className="w-4 h-4" /> Download Template
-          </button>
+          {isSuperAdmin && (
+            <>
+              <label className="flex items-center gap-2 px-4 py-2 border border-border text-sm text-foreground hover:bg-muted cursor-pointer transition-colors">
+                <Upload className="w-4 h-4" />
+                Import Excel
+                <input type="file" accept=".xlsx,.xls,.csv" onChange={handleImportFile} className="hidden" />
+              </label>
+              <button onClick={downloadTemplate} className="flex items-center gap-2 px-4 py-2 border border-border text-sm hover:bg-muted transition-colors">
+                <Download className="w-4 h-4" /> Download Template
+              </button>
+            </>
+          )}
           <button
             onClick={handleExport} disabled={filtered.length === 0}
             className="flex items-center gap-2 px-4 py-2 bg-red-700 text-white text-sm hover:bg-red-900 disabled:opacity-50 transition-colors"
@@ -402,7 +408,7 @@ export default function StudentManagement() {
           </button>
         </div>
 
-        {importRows.length > 0 && (
+        {isSuperAdmin && importRows.length > 0 && (
           <div className="mt-4 border border-border">
             <div className="px-4 py-3 border-b border-border flex items-center justify-between">
               <p className="text-sm font-medium">{importRows.length} rows to import</p>
@@ -480,9 +486,10 @@ export default function StudentManagement() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border bg-card">
-                  {['USN','Name','Sec','Sem','Branch','Email','Clean Key','Reg. Status','Personal Email','Contact','Form Lang','Tool Lang','Question Title','Assessment Status','Assigned Batch',''].map((h) => (
+                  {['USN','Name','Sec','Sem','Branch','Email','Clean Key','Reg. Status','Personal Email','Contact','Form Lang','Tool Lang','Question Title','Assessment Status','Assigned Batch'].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-xs text-foreground whitespace-nowrap">{h}</th>
                   ))}
+                  {isSuperAdmin && <th className="px-4 py-3 text-left text-xs text-foreground whitespace-nowrap"></th>}
                 </tr>
               </thead>
               <tbody>
@@ -517,16 +524,18 @@ export default function StudentManagement() {
                       ) : '—'}
                     </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{s.assignedBatch || '—'}</td>
-                    <td className="px-3 py-3">
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => openEdit(s)} className="p-1.5 text-muted-foreground hover:text-foreground transition-colors" title="Edit">
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button onClick={() => handleDelete(s._id, s.name)} className="p-1.5 text-muted-foreground hover:text-red-600 transition-colors" title="Delete">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
+                    {isSuperAdmin && (
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => openEdit(s)} className="p-1.5 text-muted-foreground hover:text-foreground transition-colors" title="Edit">
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => handleDelete(s._id, s.name)} className="p-1.5 text-muted-foreground hover:text-red-600 transition-colors" title="Delete">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
