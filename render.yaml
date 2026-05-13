@@ -1,10 +1,11 @@
 services:
+  # ── Backend: Node.js Web Service ─────────────────────────────────────────────
   - type: web
-    name: tsams-app
+    name: tsams-backend
     runtime: node
-    rootDir: .
-    buildCommand: cd frontend && npm install --include=dev && npm run build && cd ../backend && npm install --omit=dev
-    startCommand: node backend/server.js
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node server.js
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
@@ -14,4 +15,19 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: JWT_SECRET
+        sync: false
+
+  # ── Frontend: Static Site ─────────────────────────────────────────────────────
+  - type: web
+    name: tsams-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install --include=dev && npm run build
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
         sync: false
