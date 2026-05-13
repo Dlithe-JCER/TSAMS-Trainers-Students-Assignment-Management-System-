@@ -33,9 +33,6 @@ router.post('/', adminAuth, async (req, res) => {
     if (!name || !college) {
       return res.status(400).json({ message: 'Classroom number and college are required' });
     }
-    if (req.user?.role === 'superAdmin' && !remark?.trim()) {
-      return res.status(400).json({ message: 'Remark is required for super admin changes' });
-    }
     const classroom = await Classroom.create({
       college, assignmentName, name,
       batch: batch || null,
@@ -57,9 +54,6 @@ router.post('/', adminAuth, async (req, res) => {
 router.put('/:id', adminAuth, async (req, res) => {
   try {
     const { college, assignmentName, name, batch, status, capacity, description, startDate, endDate, remark } = req.body;
-    if (req.user?.role === 'superAdmin' && !remark?.trim()) {
-      return res.status(400).json({ message: 'Remark is required for super admin changes' });
-    }
     const updateData = {
       college, assignmentName, name,
       batch: batch || null,
@@ -83,9 +77,6 @@ router.put('/:id', adminAuth, async (req, res) => {
 router.delete('/:id', adminAuth, async (req, res) => {
   try {
     const { remark } = req.body;
-    if (req.user?.role === 'superAdmin' && !remark?.trim()) {
-      return res.status(400).json({ message: 'Remark is required for super admin changes' });
-    }
     const classroom = await Classroom.findByIdAndDelete(req.params.id);
     if (!classroom) return res.status(404).json({ message: 'Classroom not found' });
     console.log(`SuperAdmin delete remark for classroom ${req.params.id}:`, remark?.trim());

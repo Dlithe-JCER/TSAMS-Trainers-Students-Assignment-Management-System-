@@ -11,6 +11,12 @@ interface Batch {
   college: string;
 }
 
+interface Assignment {
+  _id: string;
+  name: string;
+  college: string;
+}
+
 interface Classroom {
   _id: string;
   college: string;
@@ -115,6 +121,7 @@ export default function ClassroomManagement() {
 
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editingClassroom, setEditingClassroom] = useState<Classroom | null>(null);
   const [formData, setFormData] = useState({ ...emptyForm, college: assignedCollege ?? '' });
@@ -135,6 +142,7 @@ export default function ClassroomManagement() {
   useEffect(() => {
     fetchClassrooms();
     fetchBatches();
+    fetchAssignments();
   }, []);
 
   const fetchClassrooms = async () => {
@@ -166,16 +174,27 @@ export default function ClassroomManagement() {
     } catch {}
   };
 
+  const fetchAssignments = async () => {
+    try {
+      const token = getToken();
+      const response = await fetch(`${API_URL}/assignments/all`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!response.ok) return;
+      setAssignments(await response.json());
+    } catch {}
+  };
+
   // Filter out classrooms whose endDate + 7 days has passed — hidden from UI, not deleted from DB
   const visibleClassrooms = classrooms.filter((c) => !isHidden(c));
 
   const batchesForCollege = batches.filter((b) => !formData.college || b.college === formData.college);
+  const assignmentsForCollege = assignments.filter((a) => !formData.college || a.college === formData.college);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     if (!formData.college.trim()) newErrors.college = 'College is required';
     if (!formData.name.trim()) newErrors.name = 'Classroom number is required';
-    if (!formData.remark.trim()) newErrors.remark = 'Remark is required';
     if (formData.startDate && formData.endDate && formData.endDate < formData.startDate)
       newErrors.endDate = 'End date must be after start date';
     setErrors(newErrors);
@@ -217,7 +236,7 @@ export default function ClassroomManagement() {
   };
 
   const handleCollegeChange = (college: string) => {
-    setFormData((prev) => ({ ...prev, college, batch: '' }));
+    setFormData((prev) => ({ ...prev, college, batch: '', assignmentName: '' }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -262,8 +281,7 @@ export default function ClassroomManagement() {
     if (!confirm('Are you sure you want to delete this classroom?')) return;
     setSubmitting(true);
     try {
-      const remark = prompt('Enter remark for deleting this classroom');
-      if (!remark?.trim()) return;
+      const remark = prompt('Enter remark for deleting this classroom (optional)') ?? '';
       const response = await fetch(`${API_URL}/classrooms/${classroomId}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
@@ -580,15 +598,23 @@ export default function ClassroomManagement() {
 
               {/* Assignment Name */}
               <div>
-                <label className="block text-sm text-muted-foreground mb-2">Assignment Name / ID</label>
-                <input
-                  type="text"
+                <label className="block text-sm text-muted-foreground mb-2">Assignment Name</label>
+                <select
                   value={formData.assignmentName}
                   onChange={(e) => setFormData({ ...formData, assignmentName: e.target.value })}
-                  placeholder="e.g. NITTE-MAY29-JUNE14-PlacementTraining"
                   className="w-full px-4 py-2 border border-border bg-card text-card-foreground focus:outline-none focus:border-primary"
-                  disabled={submitting}
-                />
+                  disabled={submitting || !formData.college}
+                >
+                  <option value="">
+                    {!formData.college ? 'Select college first' : '-- Select Assignment --'}
+                  </option>
+                  {assignmentsForCollege.map((a) => (
+                    <option key={a._id} value={a.name}>{a.name}</option>
+                  ))}
+                  {formData.college && assignmentsForCollege.length === 0 && (
+                    <option disabled>No assignments for {formData.college}</option>
+                  )}
+                </select>
               </div>
 
               {/* Classroom Number */}
@@ -664,27 +690,20 @@ export default function ClassroomManagement() {
                     type="date"
                     value={formData.endDate}
                     min={formData.startDate || undefined}
-                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormData({ ...formData, endDate: val });
+                      if (val) {
+                        const hideDate = new Date(new Date(val).getTime() + WEEK_MS).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                        toast.warning(`Classroom will be hidden from UI on ${hideDate} (7 days after end date). It will remain in the database.`);
+                      }
+                    }}
                     className="w-full px-4 py-2 border border-border bg-card text-card-foreground focus:outline-none focus:border-primary"
                     disabled={submitting}
                   />
                   {errors.endDate && <p className="text-sm text-red-600 mt-1">{errors.endDate}</p>}
                 </div>
               </div>
-
-              {formData.endDate && (
-                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2">
-                  This classroom will be hidden from the UI on{' '}
-                  <strong>
-                    {new Date(new Date(formData.endDate).getTime() + WEEK_MS).toLocaleDateString('en-IN', {
-                      day: '2-digit',
-                      month: 'short',
-                      year: 'numeric',
-                    })}
-                  </strong>{' '}
-                  (7 days after the end date). It will remain in the database.
-                </p>
-              )}
 
               {/* Batch */}
               <div>
@@ -706,7 +725,7 @@ export default function ClassroomManagement() {
 
               <div>
                 <label className="block text-sm text-muted-foreground mb-2">
-                  Remark <span className="text-red-600">*</span>
+                  Remark
                 </label>
                 <textarea
                   value={formData.remark}

@@ -3,11 +3,14 @@ import bcrypt from 'bcryptjs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import connectDB from './config/db.js';
+import { sql } from './config/db.js';
 import Trainer from './models/Trainer.js';
 import Submission from './models/Submission.js';
 import Batch from './models/Batch.js';
 import Classroom from './models/Classroom.js';
 import TocDocument from './models/TocDocument.js';
+import Student from './models/Student.js';
+import AttendanceSummary from './models/AttendanceSummary.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -381,6 +384,76 @@ const seed = async () => {
       }
     }
     console.log(`Submissions: ${subCreated} created, ${subSkipped} already existed`);
+
+    // ── Test Student: A AKSHAY ────────────────────────────────────────────────
+    // clean_key = lowercase(USN) = 'nnm23cs001'
+    const TEST_USN = 'NNM23CS001';
+    const TEST_CLEAN_KEY = TEST_USN.toLowerCase(); // 'nnm23cs001'
+
+    let testStudent = await Student.findOne({ usn: TEST_USN });
+    if (!testStudent) {
+      testStudent = await Student.create({
+        name: 'A AKSHAY',
+        usn: TEST_USN,
+        college: 'Nitte',
+        sec: 'A',
+        sem: '6',
+        branch: 'CSE',
+        email: 'akshay@nitte.edu.in',
+        cleanKey: TEST_CLEAN_KEY,
+        registrationStatus: 'Registered',
+        personalEmailId: 'akshay@gmail.com',
+        contactNumber: '9876543210',
+        formProgrammingLanguage: 'Python',
+        toolProgrammingLanguage: 'VS Code',
+        questionTitle: 'Arrays & Strings',
+        assessmentStatus: 'Completed',
+        assignedBatch: 'NITTE Placement Training – Tech',
+      });
+      console.log(`Created test student: ${testStudent.name} (${testStudent.usn}) clean_key=${TEST_CLEAN_KEY}`);
+    } else {
+      console.log(`Test student already exists: ${TEST_USN}`);
+    }
+
+    // ── Test Attendance Summary: morning1 + afternoon1 ────────────────────────
+    const SEED_DATE = '2026-05-13';
+
+    const existingSummary = await sql.query(
+      `SELECT id FROM attendance_summary WHERE usn=$1 AND date=$2`,
+      [TEST_USN, SEED_DATE]
+    );
+
+    if (existingSummary.length === 0) {
+      await AttendanceSummary.create({
+        studentName: 'A AKSHAY',
+        usn: TEST_USN,
+        cleanKey: TEST_CLEAN_KEY,
+        date: SEED_DATE,
+        time: '09:15:00 AM',
+        latitude: 13.0732,
+        longitude: 74.9892,
+        session: 'morning1',
+        batchName: 'NITTE Placement Training – Tech',
+        college: 'Nitte',
+      });
+
+      await AttendanceSummary.create({
+        studentName: 'A AKSHAY',
+        usn: TEST_USN,
+        cleanKey: TEST_CLEAN_KEY,
+        date: SEED_DATE,
+        time: '01:20:00 PM',
+        latitude: 13.0732,
+        longitude: 74.9892,
+        session: 'afternoon1',
+        batchName: 'NITTE Placement Training – Tech',
+        college: 'Nitte',
+      });
+
+      console.log(`Created attendance summary: morning1 + afternoon1 for ${TEST_USN} on ${SEED_DATE}`);
+    } else {
+      console.log(`Attendance summary already seeded for ${TEST_USN} on ${SEED_DATE}`);
+    }
 
     console.log('\n✓ Seed complete');
     console.log('─────────────────────────────────────────');

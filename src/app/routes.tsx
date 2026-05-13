@@ -10,6 +10,7 @@ import TocDocumentsPublic from './pages/TocDocumentsPublic';
 import AdminAssignments from './pages/AdminAssignments';
 import AdminBatches from './pages/AdminBatches';
 import StudentAttendance from './pages/StudentAttendance';
+import StudentManagement from './pages/StudentManagement';
 import ProtectedRoute from './components/ProtectedRoute';
 
 export const router = createBrowserRouter([
@@ -82,6 +83,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <AdminAssignments />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/students',
+    element: (
+      <ProtectedRoute>
+        <StudentManagement />
       </ProtectedRoute>
     ),
   },

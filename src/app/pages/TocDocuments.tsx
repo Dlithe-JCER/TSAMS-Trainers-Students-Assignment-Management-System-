@@ -16,11 +16,18 @@ type TocDocument = {
   fileName: string;
 };
 
+type Assignment = {
+  _id: string;
+  name: string;
+  college: string;
+};
+
 export default function TocDocuments() {
   const { user } = useAuth();
   const isSuperAdmin = user?.email?.toLowerCase() === SUPER_ADMIN_EMAIL;
 
   const [docs, setDocs] = useState<TocDocument[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [college, setCollege] = useState('Nitte');
@@ -33,6 +40,22 @@ export default function TocDocuments() {
 
   const collegeOptions = ['Nitte', 'MITE', 'SDMIT'];
   const levelOptions = ['Level 1', 'Level 2', 'Level 3', 'Level 4'];
+
+  const filteredAssignments = assignments.filter((a) => a.college === college);
+
+  const fetchAssignments = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/assignments/all`, {
+        headers: { Authorization: token ? `Bearer ${token}` : '' },
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      setAssignments(data);
+    } catch {
+      // non-critical, silently fail
+    }
+  };
 
   const fetchDocs = async () => {
     try {
@@ -60,6 +83,7 @@ export default function TocDocuments() {
 
   useEffect(() => {
     fetchDocs();
+    fetchAssignments();
   }, []);
 
   const resetForm = () => {
@@ -194,7 +218,7 @@ export default function TocDocuments() {
             <label className="block text-sm text-muted-foreground mb-2">College Name</label>
             <select
               value={college}
-              onChange={(e) => setCollege(e.target.value)}
+              onChange={(e) => { setCollege(e.target.value); setAssignmentName(''); }}
               className="w-full px-4 py-2 border border-border bg-card text-card-foreground focus:outline-none focus:border-primary"
             >
               {collegeOptions.map((item) => (
@@ -207,13 +231,21 @@ export default function TocDocuments() {
 
           <div>
             <label className="block text-sm text-muted-foreground mb-2">Assignment Name</label>
-            <input
-              type="text"
+            <select
               value={assignmentName}
               onChange={(e) => setAssignmentName(e.target.value)}
-              placeholder="e.g. Java Web Development"
               className="w-full px-4 py-2 border border-border bg-card text-card-foreground focus:outline-none focus:border-primary"
-            />
+            >
+              <option value="">-- Select Assignment --</option>
+              {filteredAssignments.map((a) => (
+                <option key={a._id} value={a.name}>
+                  {a.name}
+                </option>
+              ))}
+              {filteredAssignments.length === 0 && (
+                <option disabled>No assignments for {college}</option>
+              )}
+            </select>
           </div>
 
           <div className="md:col-span-2">

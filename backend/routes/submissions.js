@@ -201,17 +201,20 @@ router.put('/:id/review', adminAuth,
   }
 );
 
-// Delete submission (owner only)
+// Delete submission (owner or admin)
 router.delete('/:id', auth, async (req, res) => {
   try {
     const submission = await Submission.findById(req.params.id);
     if (!submission) return res.status(404).json({ message: 'Submission not found' });
 
-    const ownerId = typeof submission.trainerId === 'object'
-      ? submission.trainerId?.id
-      : submission.trainerId;
-    if (!ownerId || ownerId !== req.trainerId) {
-      return res.status(403).json({ message: 'Not authorized to delete this submission' });
+    const isAdmin = req.user?.role === 'admin' || req.user?.role === 'superAdmin';
+    if (!isAdmin) {
+      const ownerId = typeof submission.trainerId === 'object'
+        ? submission.trainerId?.id
+        : submission.trainerId;
+      if (!ownerId || ownerId !== req.user?.id) {
+        return res.status(403).json({ message: 'Not authorized to delete this submission' });
+      }
     }
 
     await Submission.findByIdAndDelete(req.params.id);

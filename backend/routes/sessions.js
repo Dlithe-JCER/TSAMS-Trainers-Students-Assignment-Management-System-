@@ -2,6 +2,9 @@ import express from 'express';
 import DailyLog from '../models/DailyLog.js';
 import SessionToken from '../models/SessionToken.js';
 import SessionAttendance from '../models/SessionAttendance.js';
+import Student from '../models/Student.js';
+import AttendanceSummary from '../models/AttendanceSummary.js';
+import { adminAuth } from '../middleware/auth.js';
 
 const GFORM_SUBMIT_URL =
   'https://docs.google.com/forms/d/e/1FAIpQLSewelbciXC3k9FzPPKyN427lqb-UjTsV3n2lihFigrolWk7wg/formResponse';
@@ -151,11 +154,24 @@ router.post('/submit', async (req, res) => {
       return res.status(409).json({ message: 'Attendance already submitted from this device' });
     }
 
+    // Step 1: verify USN exists in students table
+    const normalizedUsn = usn.trim().toUpperCase();
+    const student = await Student.findOne({ usn: normalizedUsn });
+    if (!student) {
+      return res.status(400).json({ message: 'USN not registered. Contact your coordinator.' });
+    }
+
+    // Step 2: lowercase(entered USN) must match student clean_key
+    const usnLower = normalizedUsn.toLowerCase();
+    if (!student.cleanKey || usnLower !== student.cleanKey.trim().toLowerCase()) {
+      return res.status(400).json({ message: 'USN verification failed. Contact your coordinator.' });
+    }
+
     await SessionToken.addUsedIp(st.id, ip);
 
     const record = await SessionAttendance.create({
-      studentName: studentName.trim(),
-      usn: usn.trim().toUpperCase(),
+      studentName: student.name,
+      usn: normalizedUsn,
       batchId: st.batchId,
       batchName: st.batchName,
       college: st.college,
@@ -164,12 +180,42 @@ router.post('/submit', async (req, res) => {
       longitude: longitude ?? null,
     });
 
-    submitToGoogleForm(studentName.trim(), usn.trim().toUpperCase(), st.date);
+    // Store verified record in attendance_summary
+    const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    await AttendanceSummary.create({
+      studentName: student.name,
+      usn: normalizedUsn,
+      cleanKey: student.cleanKey,
+      date: st.date,
+      time: timeStr,
+      latitude: latitude ?? null,
+      longitude: longitude ?? null,
+      session: st.session,
+      batchName: st.batchName,
+      college: st.college,
+    });
+
+    submitToGoogleForm(student.name, normalizedUsn, st.date);
 
     res.status(201).json({ success: true, id: record.id });
   } catch (err) {
     console.error('Submit attendance error:', err);
     res.status(500).json({ message: 'Failed to record attendance' });
+  }
+});
+
+// GET /api/sessions/attendance-summary  (admin only)
+router.get('/attendance-summary', adminAuth, async (req, res) => {
+  try {
+    const { college, date } = req.query;
+    const records = await AttendanceSummary.find({
+      college: college || undefined,
+      date: date || undefined,
+    });
+    res.json(records);
+  } catch (err) {
+    console.error('Attendance summary fetch error:', err);
+    res.status(500).json({ message: 'Failed to fetch attendance summary' });
   }
 });
 

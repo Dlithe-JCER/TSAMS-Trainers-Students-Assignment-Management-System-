@@ -43,10 +43,7 @@ router.post(
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
     try {
-      const { name, phone, email, username, password, allottedCollege, allottedProgrammingLanguage, allottedLevel, assignmentName, allottedBatch, topicCoverage, remark } = req.body;
-      if (req.user?.role === 'superAdmin' && !remark?.trim()) {
-        return res.status(400).json({ message: 'Remark is required for super admin changes' });
-      }
+      const { name, phone, email, username, password, allottedCollege, allottedProgrammingLanguage, allottedLevel, assignmentName, allottedBatch, topicCoverage, remark, assignedTocId } = req.body;
 
       const existing = await Trainer.findOne({ $or: [{ phone }, { username }] });
       if (existing) {
@@ -68,6 +65,7 @@ router.post(
         verified: true,
         role: 'trainer',
         adminRemark: remark?.trim(),
+        assignedTocId: assignedTocId || null,
       });
 
       const token = jwt.sign({ id: trainer.id, role: trainer.role, email: trainer.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
@@ -336,10 +334,7 @@ router.put(
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
     try {
-      const { name, phone, email, username, password, allottedCollege, allottedProgrammingLanguage, allottedLevel, assignmentName, allottedBatch, topicCoverage, remark } = req.body;
-      if (req.user?.role === 'superAdmin' && !remark?.trim()) {
-        return res.status(400).json({ message: 'Remark is required for super admin changes' });
-      }
+      const { name, phone, email, username, password, allottedCollege, allottedProgrammingLanguage, allottedLevel, assignmentName, allottedBatch, topicCoverage, remark, assignedTocId } = req.body;
 
       const existing = await Trainer.findById(req.params.id);
       if (!existing) return res.status(404).json({ message: 'Trainer not found' });
@@ -366,6 +361,7 @@ router.put(
       if (allottedBatch) updates.allottedBatch = allottedBatch;
       if (topicCoverage) updates.topicCoverage = topicCoverage;
       if (remark) updates.adminRemark = remark.trim();
+      if (assignedTocId !== undefined) updates.assignedTocId = assignedTocId || null;
 
       const trainer = await Trainer.findByIdAndUpdate(req.params.id, updates);
       res.json({ message: 'Trainer updated successfully', trainer });

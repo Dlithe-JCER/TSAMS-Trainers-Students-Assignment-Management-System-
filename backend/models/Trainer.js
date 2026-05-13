@@ -16,6 +16,7 @@ function mapRow(row, { excludePassword = false } = {}) {
     allottedBatch: row.allotted_batch_id,
     topicCoverage: row.topic_coverage,
     adminRemark: row.admin_remark,
+    assignedTocId: row.assigned_toc_id,
     username: row.username,
     verified: row.verified,
     isActive: row.is_active,
@@ -113,8 +114,8 @@ const Trainer = {
       `INSERT INTO trainers
          (name, email, phone, college, allotted_college, allotted_programming_language,
           allotted_level, assignment_name, allotted_batch_id, topic_coverage, admin_remark,
-          username, password, verified, is_active, role)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
+          assigned_toc_id, username, password, verified, is_active, role)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
       [
         data.name,
         data.email || null,
@@ -127,6 +128,7 @@ const Trainer = {
         data.allottedBatch || null,
         data.topicCoverage || null,
         data.adminRemark || null,
+        data.assignedTocId || null,
         data.username || null,
         data.password || null,
         data.verified ?? false,
@@ -144,7 +146,8 @@ const Trainer = {
       allottedProgrammingLanguage: 'allotted_programming_language',
       allottedLevel: 'allotted_level', assignmentName: 'assignment_name',
       allottedBatch: 'allotted_batch_id', topicCoverage: 'topic_coverage',
-      adminRemark: 'admin_remark', username: 'username', password: 'password',
+      adminRemark: 'admin_remark', assignedTocId: 'assigned_toc_id',
+      username: 'username', password: 'password',
       verified: 'verified', isActive: 'is_active', role: 'role',
     };
     const sets = [];
@@ -210,7 +213,8 @@ function camelToCol(key) {
     allottedProgrammingLanguage: 'allotted_programming_language',
     allottedLevel: 'allotted_level', assignmentName: 'assignment_name',
     allottedBatch: 'allotted_batch_id', topicCoverage: 'topic_coverage',
-    adminRemark: 'admin_remark', username: 'username', password: 'password',
+    adminRemark: 'admin_remark', assignedTocId: 'assigned_toc_id',
+    username: 'username', password: 'password',
     verified: 'verified', isActive: 'is_active', role: 'role',
     id: 'id',
   };

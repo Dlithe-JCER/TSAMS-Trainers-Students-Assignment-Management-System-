@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router';
-import { Download, Filter, ExternalLink, ShieldCheck, Shield, Plus, Trash2, FileText, ChevronDown } from 'lucide-react';
+import { Download, Filter, ExternalLink, ShieldCheck, Shield, Plus, Trash2, FileText, ChevronDown, X } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -337,6 +337,18 @@ export default function AdminDashboard() {
     }
 
     XLSX.writeFile(workbook, `submissions-${selectedCollege}-${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const handleDeleteSubmission = async (id: string) => {
+    if (!confirm('Delete this submission? This cannot be undone.')) return;
+    try {
+      const res = await fetch(`${API_URL}/submissions/${id}`, { method: 'DELETE', headers: authHeaders() });
+      if (!res.ok) throw new Error();
+      setSubmissions((prev) => prev.filter((s) => s._id !== id));
+      toast.success('Submission deleted');
+    } catch {
+      toast.error('Failed to delete submission');
+    }
   };
 
   const clearFilters = () => {
@@ -1018,6 +1030,48 @@ export default function AdminDashboard() {
 
   const collegeSummary = summary[selectedCollege];
 
+  const [attendanceSummaryLoading, setAttendanceSummaryLoading] = useState(false);
+
+  const downloadAttendanceSummary = async () => {
+    setAttendanceSummaryLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/sessions/attendance-summary`, {
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Failed to fetch attendance summary');
+      const records: any[] = await res.json();
+      if (records.length === 0) {
+        toast.info('No attendance summary records found');
+        return;
+      }
+      const rows = records.map((r) => ({
+        'Student Name': r.studentName,
+        USN: r.usn,
+        'Clean Key': r.cleanKey,
+        Date: r.date,
+        Time: r.time,
+        Session: r.session || '—',
+        'Batch Name': r.batchName || '—',
+        College: r.college || '—',
+        Latitude: r.latitude ?? '—',
+        Longitude: r.longitude ?? '—',
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      ws['!cols'] = Object.keys(rows[0]).map((k) => ({
+        wch: Math.max(k.length, ...rows.map((r) => String((r as any)[k] ?? '').length)),
+      }));
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Attendance Summary');
+      XLSX.writeFile(wb, `attendance-summary-${new Date().toISOString().split('T')[0]}.xlsx`);
+      toast.success(`Downloaded ${records.length} records`);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to download attendance summary');
+    } finally {
+      setAttendanceSummaryLoading(false);
+    }
+  };
+
   return (
     <AdminLayout>
       <div className="mb-6 flex items-start justify-between">
@@ -1030,6 +1084,26 @@ export default function AdminDashboard() {
           {isSuperAdmin ? 'Super Admin' : `Admin — ${assignedCollege}`}
         </div>
       </div>
+
+      {/* Attendance Summary Download — super admin only */}
+      {isSuperAdmin && (
+        <div className="bg-card border border-border p-5 mb-6 flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-medium text-card-foreground">Attendance Summary</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              All verified attendance records (USN + clean key validated)
+            </p>
+          </div>
+          <button
+            onClick={downloadAttendanceSummary}
+            disabled={attendanceSummaryLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-red-700 text-white text-sm hover:bg-red-900 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <Download className="w-4 h-4" />
+            {attendanceSummaryLoading ? 'Downloading…' : 'Download Excel'}
+          </button>
+        </div>
+      )}
 
       {/* Tab navigation */}
       {/* <div className="flex gap-1 border-b border-border mb-6">
@@ -1407,12 +1481,13 @@ export default function AdminDashboard() {
                 <th className="px-6 py-3 text-left text-sm text-foreground">Topics Covered</th>
                 <th className="px-6 py-3 text-left text-sm text-foreground">Session Date</th>
                 <th className="px-6 py-3 text-left text-sm text-foreground">Links</th>
+                <th className="px-6 py-3 text-right text-sm text-foreground"></th>
               </tr>
             </thead>
             <tbody>
               {filteredSubmissions.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
+                  <td colSpan={8} className="px-6 py-12 text-center text-muted-foreground">
                     No submissions found for the selected filters
                   </td>
                 </tr>
@@ -1451,6 +1526,16 @@ export default function AdminDashboard() {
                           <ExternalLink className="w-3 h-3" />
                         </a>
                       </div>
+                    </td>
+                    <td className="px-4 py-4 text-right">
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSubmission(submission._id)}
+                        className="p-1.5 text-muted-foreground hover:text-red-600 transition-colors"
+                        title="Delete submission"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
                     </td>
                   </tr>
                 ))

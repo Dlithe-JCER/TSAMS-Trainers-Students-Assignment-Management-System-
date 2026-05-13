@@ -244,6 +244,42 @@ export const initDB = async () => {
     )
   `);
 
+  // Add assigned_toc_id to trainers if not already present (idempotent migration)
+  await sql.query(`
+    ALTER TABLE trainers ADD COLUMN IF NOT EXISTS assigned_toc_id UUID REFERENCES toc_documents(id) ON DELETE SET NULL
+  `);
+
+  await sql.query(`
+    CREATE TABLE IF NOT EXISTS attendance_summary (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      student_name TEXT NOT NULL,
+      usn TEXT NOT NULL,
+      clean_key TEXT NOT NULL,
+      date TEXT NOT NULL,
+      time TEXT NOT NULL,
+      latitude DOUBLE PRECISION,
+      longitude DOUBLE PRECISION,
+      session TEXT,
+      batch_name TEXT,
+      college TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+
+  // Extend students table with new fields (idempotent)
+  await sql.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS sec TEXT`);
+  await sql.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS sem TEXT`);
+  await sql.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS branch TEXT`);
+  await sql.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS clean_key TEXT`);
+  await sql.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS registration_status TEXT`);
+  await sql.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS personal_email_id TEXT`);
+  await sql.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS contact_number TEXT`);
+  await sql.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS form_programming_language TEXT`);
+  await sql.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS tool_programming_language TEXT`);
+  await sql.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS question_title TEXT`);
+  await sql.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS assessment_status TEXT`);
+  await sql.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS assigned_batch TEXT`);
+
   console.log('Database schema initialized');
 };
 

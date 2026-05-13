@@ -50,6 +50,10 @@ router.get('/', auth, async (req, res) => {
     if (req.user.role === 'trainer') {
       const trainer = await Trainer.findById(req.user.id);
       if (!trainer) return res.status(404).json({ message: 'Trainer not found' });
+      if (trainer.assignedTocId) {
+        const doc = await TocDocument.findById(trainer.assignedTocId);
+        return res.json(doc ? [doc] : []);
+      }
       if (!trainer.allottedCollege || !trainer.allottedLevel) {
         return res.status(403).json({ message: 'You are not allowed to access TOC documents' });
       }
@@ -247,6 +251,14 @@ router.get('/by-trainer/:trainerId', async (req, res) => {
 
     const college = (trainer.allottedCollege || trainer.college || '').trim();
     const level = (trainer.allottedLevel || '').trim();
+
+    if (trainer.assignedTocId) {
+      const doc = await TocDocument.findById(trainer.assignedTocId);
+      return res.json({
+        trainer: { name: trainer.name, college, level, assignmentName: trainer.assignmentName },
+        docs: doc ? [{ _id: doc.id, id: doc.id, title: doc.title, level: doc.level, college: doc.college, fileUrl: doc.fileUrl, fileName: doc.fileName, assignmentName: doc.assignmentName }] : [],
+      });
+    }
 
     if (!college || !level) {
       return res.status(200).json({

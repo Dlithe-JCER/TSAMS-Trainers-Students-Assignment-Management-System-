@@ -17,7 +17,15 @@ interface Trainer {
   allottedBatch?: string;
   topicCoverage?: string;
   adminRemark?: string;
+  assignedTocId?: string;
   createdAt: string;
+}
+
+interface TocDoc {
+  _id: string;
+  title: string;
+  college: string;
+  level: string;
 }
 
 const ALL_COLLEGES = ['Nitte', 'MITE', 'SDMIT'];
@@ -60,6 +68,7 @@ export default function TrainerManagement() {
     assignmentName: '',
     allottedBatch: '',
     remark: '',
+    assignedTocId: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -69,6 +78,8 @@ export default function TrainerManagement() {
   const [batchesLoading, setBatchesLoading] = useState(true);
   const [allAssignments, setAllAssignments] = useState<{ name: string; college: string }[]>([]);
   const [assignmentNamesLoading, setAssignmentNamesLoading] = useState(false);
+  const [tocDocuments, setTocDocuments] = useState<TocDoc[]>([]);
+  const [tocLoading, setTocLoading] = useState(false);
 
   // Fetch trainers on mount
   useEffect(() => {
@@ -128,6 +139,26 @@ export default function TrainerManagement() {
 
     fetchAssignmentNames();
   }, [assignedCollege]);
+
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    const fetchTocDocs = async () => {
+      try {
+        setTocLoading(true);
+        const token = getToken();
+        const res = await fetch(`${API_URL}/toc`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        setTocDocuments(data);
+      } catch {
+      } finally {
+        setTocLoading(false);
+      }
+    };
+    fetchTocDocs();
+  }, [isSuperAdmin]);
 
   const fetchTrainers = async () => {
     try {
@@ -190,10 +221,11 @@ export default function TrainerManagement() {
         assignmentName: trainer.assignmentName || '',
         allottedBatch: trainer.allottedBatch || '',
         remark: trainer.adminRemark || '',
+        assignedTocId: trainer.assignedTocId || '',
       });
     } else {
       setEditingTrainer(null);
-      setFormData({ name: '', phone: '', allottedCollege: assignedCollege ?? '', allottedProgrammingLanguage: '', allottedLevel: '', assignmentName: '', allottedBatch: '', remark: '' });
+      setFormData({ name: '', phone: '', allottedCollege: assignedCollege ?? '', allottedProgrammingLanguage: '', allottedLevel: '', assignmentName: '', allottedBatch: '', remark: '', assignedTocId: '' });
     }
     setErrors({});
     setErrorMessage('');
@@ -203,7 +235,7 @@ export default function TrainerManagement() {
   const handleCloseModal = () => {
     setShowModal(false);
     setEditingTrainer(null);
-    setFormData({ name: '', phone: '', allottedCollege: assignedCollege ?? '', allottedProgrammingLanguage: '', allottedLevel: '', assignmentName: '', allottedBatch: '', remark: '' });
+    setFormData({ name: '', phone: '', allottedCollege: assignedCollege ?? '', allottedProgrammingLanguage: '', allottedLevel: '', assignmentName: '', allottedBatch: '', remark: '', assignedTocId: '' });
     setErrors({});
   };
 
@@ -233,6 +265,7 @@ export default function TrainerManagement() {
             assignmentName: formData.assignmentName,
             allottedBatch: formData.allottedBatch,
             remark: formData.remark,
+            assignedTocId: formData.assignedTocId || null,
           }),
         });
 
@@ -264,6 +297,7 @@ export default function TrainerManagement() {
             assignmentName: formData.assignmentName,
             allottedBatch: formData.allottedBatch,
             remark: formData.remark,
+            assignedTocId: formData.assignedTocId || null,
           }),
         });
 
@@ -576,6 +610,23 @@ export default function TrainerManagement() {
                   disabled={submitting}
                 />
                 {errors.remark && <p className="text-sm text-red-600 mt-1">{errors.remark}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm text-muted-foreground mb-2">Assigned TOC</label>
+                <select
+                  value={formData.assignedTocId}
+                  onChange={(e) => setFormData({ ...formData, assignedTocId: e.target.value })}
+                  className="w-full px-4 py-2 border border-border bg-card text-card-foreground focus:outline-none focus:border-primary"
+                  disabled={submitting || tocLoading}
+                >
+                  <option value="">{tocLoading ? 'Loading...' : '-- None (use level-based matching) --'}</option>
+                  {tocDocuments
+                    .filter((d) => !formData.allottedCollege || d.college === formData.allottedCollege)
+                    .map((d) => (
+                      <option key={d._id} value={d._id}>{d.title} ({d.level})</option>
+                    ))}
+                </select>
               </div>
 
               {errorMessage && (
