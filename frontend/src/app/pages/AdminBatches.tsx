@@ -3,9 +3,9 @@ import { Plus, Trash2, Edit2, X } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
+import { API_URL } from '../../lib/api';
 
 const SUPER_ADMIN_EMAIL = 'dlithe@gmail.com';
-const API_URL = ((import.meta as any).env?.VITE_API_URL as string) || 'http://localhost:5000/api';
 const COLLEGES = ['Nitte', 'MITE', 'SDMIT'];
 const BATCH_TYPES = ['technical', 'non-technical'];
 const BATCH_STATUSES = ['active', 'completed', 'inactive'];

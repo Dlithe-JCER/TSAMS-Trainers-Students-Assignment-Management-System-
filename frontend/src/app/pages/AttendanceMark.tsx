@@ -2,12 +2,7 @@ import { useState, useEffect, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
 import { CheckCircle2, MapPin, Loader, AlertCircle, ShieldAlert } from "lucide-react";
 import { useTabLock } from "../hooks/useTabLock";
-
-const getApiUrl = () => {
-  const env = (import.meta as any).env?.VITE_API_URL as string | undefined;
-  if (env) return env;
-  return `http://${window.location.hostname}:5000/api`;
-};
+import { API_URL } from '../../lib/api';
 
 type TokenInfo = {
   session: string;
@@ -56,7 +51,6 @@ export default function AttendanceMark() {
   // Validate token
   useEffect(() => {
     if (!token) { setTokenError("Invalid link — no token found."); setTokenLoading(false); return; }
-    const API_URL = getApiUrl();
     fetch(`${API_URL}/sessions/validate/${token}`)
       .then((r) => r.json())
       .then((d) => {
@@ -119,7 +113,6 @@ export default function AttendanceMark() {
     if (!validate() || !submitAllowed) return;
     setSubmitLoading(true);
     setSubmitError("");
-    const API_URL = getApiUrl();
     try {
       const res = await fetch(`${API_URL}/sessions/submit`, {
         method: "POST",

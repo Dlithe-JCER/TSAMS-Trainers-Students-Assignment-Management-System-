@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import QRDisplay from './QRDisplay';
 import { AlertCircle, Loader } from 'lucide-react';
+import { API_URL } from '../../lib/api';
 
-const API_URL = ((import.meta as any).env?.VITE_API_URL as string) || 'http://localhost:5000/api';
 
 interface Batch {
   _id: string;

@@ -3,6 +3,7 @@ import { Plus, Edit2, Trash2, X } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
+import { API_URL } from '../../lib/api';
 
 interface Trainer {
   _id: string;
@@ -46,7 +47,6 @@ function generateUsername(name: string) {
   return `${base}${suffix}`;
 }
 
-const API_URL = ((import.meta as any).env?.VITE_API_URL as string) || 'http://localhost:5000/api';
 
 export default function TrainerManagement() {
   const { user } = useAuth();

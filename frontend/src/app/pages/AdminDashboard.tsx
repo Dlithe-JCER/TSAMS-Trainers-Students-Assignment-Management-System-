@@ -9,6 +9,7 @@ import { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun, Headi
 import dlitheLogoUrl from '../../styles/images.png';
 import AdminLayout from '../components/AdminLayout';
 import { useAuth } from '../context/AuthContext';
+import { API_URL } from '../../lib/api';
 
 const SUPER_ADMIN_EMAIL = 'dlithe@gmail.com';
 
@@ -26,7 +27,6 @@ function getCollegeAccess(email?: string): string | null {
   return COLLEGE_EMAIL_MAP[prefix] ?? null;
 }
 
-const API_URL = ((import.meta as any).env?.VITE_API_URL as string) || 'http://localhost:5000/api';
 
 type SubmissionType = {
   _id: string;

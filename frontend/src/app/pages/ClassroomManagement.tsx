@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import AdminLayout from '../components/AdminLayout';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
+import { API_URL } from '../../lib/api';
 
 interface Batch {
   _id: string;
@@ -96,7 +97,6 @@ function displayExcelDate(val: any): string {
 }
 
 const statusOptions = ['available', 'allocated', 'maintenance'] as const;
-const API_URL = ((import.meta as any).env?.VITE_API_URL as string) || 'http://localhost:5000/api';
 
 const emptyForm = {
   college: '',

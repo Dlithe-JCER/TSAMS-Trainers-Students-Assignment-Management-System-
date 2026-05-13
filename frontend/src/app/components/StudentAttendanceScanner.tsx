@@ -3,8 +3,8 @@ import { Html5QrcodeScanner } from 'html5-qrcode';
 import { useTabLock } from '../hooks/useTabLock';
 import { useGPS } from '../hooks/useGPS';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
+import { API_URL } from '../../lib/api';
 
-const API_URL = ((import.meta as any).env?.VITE_API_URL as string) || 'http://localhost:5000/api';
 
 interface ScanResult {
   studentName: string;

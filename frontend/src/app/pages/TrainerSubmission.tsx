@@ -3,8 +3,8 @@ import { Link } from "react-router";
 import { Eye, Download, Loader } from "lucide-react";
 import QRCode from "react-qr-code";
 import { toast } from "sonner";
+import { API_URL } from '../../lib/api';
 
-const API_URL = ((import.meta as any).env?.VITE_API_URL as string) || "http://localhost:5000/api";
 
 /* ---------- TYPES ---------- */
 

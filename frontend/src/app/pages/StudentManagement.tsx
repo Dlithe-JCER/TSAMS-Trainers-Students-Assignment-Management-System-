@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import AdminLayout from '../components/AdminLayout';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
+import { API_URL } from '../../lib/api';
 
 interface Student {
   _id: string;
@@ -38,7 +39,6 @@ function getCollegeAccess(email?: string): string | null {
   return COLLEGE_EMAIL_MAP[prefix] ?? null;
 }
 
-const API_URL = ((import.meta as any).env?.VITE_API_URL as string) || 'http://localhost:5000/api';
 
 const EMPTY_FORM = {
   name: '',

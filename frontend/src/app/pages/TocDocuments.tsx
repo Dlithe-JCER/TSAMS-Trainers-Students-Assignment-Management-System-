@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { Download, Eye, UploadCloud, Edit2, Trash2 } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import { useAuth } from '../context/AuthContext';
+import { API_URL } from '../../lib/api';
 
-const API_URL = ((import.meta as any).env?.VITE_API_URL as string) || 'http://localhost:5000/api';
 const SUPER_ADMIN_EMAIL = 'dlithe@gmail.com';
 
 type TocDocument = {

@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { LogIn, Eye, Download, BookOpen } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { API_URL } from '../../lib/api';
 
-const API_URL = ((import.meta as any).env?.VITE_API_URL as string) || 'http://localhost:5000/api';
 
 type TocDocument = {
   _id: string;
