@@ -53,16 +53,21 @@ app.get('/api/health', (req, res) => {
   res.json({ message: 'Server is running', db: 'Neon PostgreSQL' });
 });
 
+// Serve frontend static build (production)
+const distPath = path.join(__dirname, '../dist');
+app.use(express.static(distPath));
+
+// SPA fallback — all non-API routes serve index.html
+app.get('*', (req, res) => {
+  res.sendFile(path.join(distPath, 'index.html'));
+});
+
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({
     message: 'Something went wrong',
     error: process.env.NODE_ENV === 'development' ? err.message : undefined,
   });
-});
-
-app.use((req, res) => {
-  res.status(404).json({ message: 'Route not found' });
 });
 
 const PORT = process.env.PORT || 5000;
