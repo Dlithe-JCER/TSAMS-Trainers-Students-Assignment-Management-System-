@@ -20,11 +20,19 @@ interface Classroom {
   status: string;
 }
 
+const SESSION_OPTIONS = [
+  { value: 'morning1', label: 'Morning Session 1' },
+  { value: 'morning2', label: 'Morning Session 2' },
+  { value: 'afternoon1', label: 'Afternoon Session 1' },
+  { value: 'afternoon2', label: 'Afternoon Session 2' },
+];
+
 export default function TrainerSessionForm() {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
   const [selectedBatch, setSelectedBatch] = useState('');
   const [selectedClassroom, setSelectedClassroom] = useState('');
+  const [selectedSession, setSelectedSession] = useState('');
   const [qrToken, setQrToken] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
   const [loading, setLoading] = useState(false);
@@ -68,27 +76,30 @@ export default function TrainerSessionForm() {
       setError('Please select a batch');
       return;
     }
+    if (!selectedSession) {
+      setError('Please select a session');
+      return;
+    }
 
     setLoading(true);
     setError('');
 
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setError('You must be logged in to generate QR codes');
+      const batch = batches.find((b) => b._id === selectedBatch);
+      if (!batch) {
+        setError('Selected batch not found');
         setLoading(false);
         return;
       }
 
-      const res = await fetch(`${API_URL}/attendance/generate-qr`, {
+      const res = await fetch(`${API_URL}/sessions/generate`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          session: selectedSession,
           batchId: selectedBatch,
-          classroomId: selectedClassroom || undefined,
+          batchName: batch.name,
+          college: batch.college,
         }),
       });
 
@@ -100,7 +111,7 @@ export default function TrainerSessionForm() {
         return;
       }
 
-      setQrToken(data.qrToken);
+      setQrToken(data.token);
       setExpiresAt(data.expiresAt);
       setLoading(false);
     } catch (err) {
@@ -168,6 +179,20 @@ export default function TrainerSessionForm() {
         </div>
 
         <div>
+          <label className="text-sm font-medium text-zinc-700">Select Session *</label>
+          <select
+            value={selectedSession}
+            onChange={(e) => setSelectedSession(e.target.value)}
+            className="w-full px-4 py-2 border border-zinc-300 rounded text-sm mt-1"
+          >
+            <option value="">Choose a session</option>
+            {SESSION_OPTIONS.map((s) => (
+              <option key={s.value} value={s.value}>{s.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
           <label className="text-sm font-medium text-zinc-700">Select Classroom (Optional)</label>
           <select
             value={selectedClassroom}
@@ -185,7 +210,7 @@ export default function TrainerSessionForm() {
 
         <button
           type="submit"
-          disabled={loading || !selectedBatch || batchesLoading}
+          disabled={loading || !selectedBatch || !selectedSession || batchesLoading}
           className="w-full px-4 py-3 bg-red-900 text-white rounded font-medium hover:bg-red-800 disabled:opacity-60 flex items-center justify-center gap-2"
         >
           {loading && <Loader className="w-4 h-4 animate-spin" />}
