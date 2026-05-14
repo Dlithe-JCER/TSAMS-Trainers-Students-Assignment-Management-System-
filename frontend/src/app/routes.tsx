@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router';
+import { createHashRouter } from 'react-router';
 import TrainerSubmission from './pages/TrainerSubmission';
 import AttendanceMark from './pages/AttendanceMark';
 import AdminLogin from './pages/AdminLogin';
@@ -13,7 +13,7 @@ import StudentAttendance from './pages/StudentAttendance';
 import StudentManagement from './pages/StudentManagement';
 import ProtectedRoute from './components/ProtectedRoute';
 
-export const router = createBrowserRouter([
+export const router = createHashRouter([
   {
     path: '/',
     Component: TrainerSubmission,

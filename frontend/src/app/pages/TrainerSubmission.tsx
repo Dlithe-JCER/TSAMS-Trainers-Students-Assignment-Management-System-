@@ -138,7 +138,7 @@ function SessionCard({
       const data = await res.json();
       if (res.status === 409) { setState({ status: "used_today" }); return; }
       if (!res.ok) { setState({ status: "error", message: data.message || "Failed" }); return; }
-      const qrUrl = `${window.location.origin}/attend?token=${data.token}`;
+      const qrUrl = `${window.location.origin}/#/attend?token=${data.token}`;
       setState({ status: "active", token: data.token, qrUrl, timeLeft: 300 });
     } catch {
       setState({ status: "error", message: "Network error" });

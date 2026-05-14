@@ -68,7 +68,7 @@ export default function QRDisplay({
           WebkitTouchCallout: 'none',
           userSelect: 'none',
         }}>
-        <QRCode value={`${window.location.origin}/attend?token=${qrToken}`} size={256} level="H" />
+        <QRCode value={`${window.location.origin}/#/attend?token=${qrToken}`} size={256} level="H" />
       </div>
 
       <div className="text-center">
