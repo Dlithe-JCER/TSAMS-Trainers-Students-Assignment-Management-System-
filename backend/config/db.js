@@ -244,6 +244,19 @@ export const initDB = async () => {
     )
   `);
 
+  await sql.query(`
+    CREATE TABLE IF NOT EXISTS colleges (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      name TEXT NOT NULL,
+      code TEXT UNIQUE NOT NULL,
+      department TEXT,
+      location TEXT,
+      is_active BOOLEAN DEFAULT true,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+
   // Add assigned_toc_id to trainers if not already present (idempotent migration)
   await sql.query(`
     ALTER TABLE trainers ADD COLUMN IF NOT EXISTS assigned_toc_id UUID REFERENCES toc_documents(id) ON DELETE SET NULL

@@ -8,6 +8,7 @@ import ClassroomManagement from './pages/ClassroomManagement';
 import TocDocuments from './pages/TocDocuments';
 import TocDocumentsPublic from './pages/TocDocumentsPublic';
 import AdminAssignments from './pages/AdminAssignments';
+import CollegeManagement from './pages/CollegeManagement';
 import AdminBatches from './pages/AdminBatches';
 import StudentAttendance from './pages/StudentAttendance';
 import StudentManagement from './pages/StudentManagement';
@@ -83,6 +84,14 @@ export const router = createHashRouter([
     element: (
       <ProtectedRoute>
         <AdminAssignments />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin/colleges',
+    element: (
+      <ProtectedRoute>
+        <CollegeManagement />
       </ProtectedRoute>
     ),
   },

@@ -60,6 +60,15 @@ type CollegeSummary = {
   trainers: number;
 };
 
+type CollegeType = {
+  _id: string;
+  name: string;
+  code: string;
+  department?: string;
+  location?: string;
+  isActive: boolean;
+};
+
 export default function AdminDashboard() {
   const { user } = useAuth();
   const assignedCollege = getCollegeAccess(user?.email);
@@ -79,7 +88,7 @@ export default function AdminDashboard() {
 
   const collegeOptions = isSuperAdmin ? ['Nitte', 'MITE', 'SDMIT'] : [assignedCollege!];
 
-  const [activeTab, setActiveTab] = useState<'submissions' | 'assignments'>('submissions');
+  const [activeTab, setActiveTab] = useState<'submissions' | 'assignments' | 'colleges'>('submissions');
 
   // Assignment management state (super admin only)
   const [assignments, setAssignments] = useState<AssignmentType[]>([]);
@@ -90,6 +99,14 @@ export default function AdminDashboard() {
   const [assignmentFilter, setAssignmentFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [showReportMenu, setShowReportMenu] = useState(false);
   const reportMenuRef = useRef<HTMLDivElement>(null);
+
+  // College management state
+  const [colleges, setColleges] = useState<CollegeType[]>([]);
+  const [collegesLoading, setCollegesLoading] = useState(false);
+  const [collegeForm, setCollegeForm] = useState({ name: '', code: '', department: '', location: '' });
+  const [collegeFormError, setCollegeFormError] = useState('');
+  const [collegeSaving, setCollegeSaving] = useState(false);
+  const [editingCollege, setEditingCollege] = useState<CollegeType | null>(null);
 
   const authHeaders = () => ({
     'Content-Type': 'application/json',
@@ -112,6 +129,10 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (isSuperAdmin && activeTab === 'assignments') fetchAssignments();
   }, [activeTab, isSuperAdmin]);
+
+  useEffect(() => {
+    if (activeTab === 'colleges') fetchColleges();
+  }, [activeTab]);
 
   const handleCreateAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -167,6 +188,100 @@ export default function AdminDashboard() {
   const filteredAssignments = assignments.filter((a) =>
     assignmentFilter === 'all' ? true : assignmentFilter === 'active' ? a.isActive : !a.isActive
   );
+
+  const fetchColleges = async () => {
+    setCollegesLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/colleges`, { headers: authHeaders() });
+      const data = await res.json();
+      setColleges(Array.isArray(data) ? data : []);
+    } catch {
+      setColleges([]);
+    } finally {
+      setCollegesLoading(false);
+    }
+  };
+
+  const handleCreateCollege = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!collegeForm.name.trim() || !collegeForm.code.trim()) {
+      setCollegeFormError('Name and code are required');
+      return;
+    }
+    setCollegeFormError('');
+    setCollegeSaving(true);
+    try {
+      const res = await fetch(`${API_URL}/colleges`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify(collegeForm),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to create');
+      setCollegeForm({ name: '', code: '', department: '', location: '' });
+      fetchColleges();
+      toast.success('College added');
+    } catch (err: any) {
+      setCollegeFormError(err.message || 'Failed to create college');
+    } finally {
+      setCollegeSaving(false);
+    }
+  };
+
+  const handleUpdateCollege = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCollege) return;
+    if (!collegeForm.name.trim() || !collegeForm.code.trim()) {
+      setCollegeFormError('Name and code are required');
+      return;
+    }
+    setCollegeFormError('');
+    setCollegeSaving(true);
+    try {
+      const res = await fetch(`${API_URL}/colleges/${editingCollege._id}`, {
+        method: 'PUT',
+        headers: authHeaders(),
+        body: JSON.stringify(collegeForm),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to update');
+      setEditingCollege(null);
+      setCollegeForm({ name: '', code: '', department: '', location: '' });
+      fetchColleges();
+      toast.success('College updated');
+    } catch (err: any) {
+      setCollegeFormError(err.message || 'Failed to update college');
+    } finally {
+      setCollegeSaving(false);
+    }
+  };
+
+  const handleDeleteCollege = async (id: string) => {
+    if (!confirm('Delete this college? This cannot be undone.')) return;
+    try {
+      await fetch(`${API_URL}/colleges/${id}`, { method: 'DELETE', headers: authHeaders() });
+      setColleges((prev) => prev.filter((c) => c._id !== id));
+      toast.success('College deleted');
+    } catch {
+      toast.error('Failed to delete college');
+    }
+  };
+
+  const handleToggleCollegeStatus = async (c: CollegeType) => {
+    try {
+      const res = await fetch(`${API_URL}/colleges/${c._id}`, {
+        method: 'PUT',
+        headers: authHeaders(),
+        body: JSON.stringify({ isActive: !c.isActive }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      setColleges((prev) => prev.map((x) => (x._id === c._id ? data : x)));
+      toast.success('Status updated');
+    } catch {
+      toast.error('Failed to update status');
+    }
+  };
 
   const collegeDetails: Record<string, { tagline: string; description: string }> = {
     Nitte: {
@@ -1105,33 +1220,6 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* Tab navigation */}
-      {/* <div className="flex gap-1 border-b border-border mb-6">
-        <button
-          type="button"
-          onClick={() => setActiveTab('submissions')}
-          className={`px-5 py-2.5 text-sm border-b-2 transition-colors ${
-            activeTab === 'submissions'
-              ? 'border-primary text-foreground'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          Submissions
-        </button>
-        {isSuperAdmin && (
-          // <button
-          //   type="button"
-          //   onClick={() => setActiveTab('assignments')}
-          //   className={`px-5 py-2.5 text-sm border-b-2 transition-colors ${
-          //     activeTab === 'assignments'
-          //       ? 'border-primary text-foreground'
-          //       : 'border-transparent text-muted-foreground hover:text-foreground'
-          //   }`}
-          // >
-          //   Assignment Management
-          // </button>
-        // )}
-      </div> */}
 
       {/* ── ASSIGNMENTS TAB ── */}
       {activeTab === 'assignments' && isSuperAdmin && (
@@ -1546,6 +1634,189 @@ export default function AdminDashboard() {
       </div>
 
       </>}
+
+      {/* ── COLLEGES TAB ── */}
+      {activeTab === 'colleges' && (
+        <div>
+          {/* Add / Edit form — super admin only */}
+          {isSuperAdmin && (
+            <div className="bg-card border border-border p-6 mb-6">
+              <h2 className="text-card-foreground font-medium mb-4">
+                {editingCollege ? 'Edit College' : 'Add New College'}
+              </h2>
+              <form
+                onSubmit={editingCollege ? handleUpdateCollege : handleCreateCollege}
+                className="grid gap-4 md:grid-cols-2"
+              >
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">College Name *</label>
+                  <input
+                    type="text"
+                    value={collegeForm.name}
+                    onChange={(e) => setCollegeForm((p) => ({ ...p, name: e.target.value }))}
+                    placeholder="e.g. NMAMIT Nitte"
+                    className="w-full px-3 py-2 border border-border text-sm focus:outline-none focus:border-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">Code *</label>
+                  <input
+                    type="text"
+                    value={collegeForm.code}
+                    onChange={(e) => setCollegeForm((p) => ({ ...p, code: e.target.value.toUpperCase() }))}
+                    placeholder="e.g. NMAMIT-NITTE-ENG"
+                    className="w-full px-3 py-2 border border-border text-sm focus:outline-none focus:border-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">Department</label>
+                  <select
+                    value={collegeForm.department}
+                    onChange={(e) => setCollegeForm((p) => ({ ...p, department: e.target.value }))}
+                    className="w-full px-3 py-2 border border-border text-sm focus:outline-none focus:border-primary"
+                  >
+                    <option value="">Select department</option>
+                    <option value="ENG">Engineering (ENG)</option>
+                    <option value="MCA">MCA</option>
+                    <option value="POLY">Polytechnic (POLY)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">Location</label>
+                  <input
+                    type="text"
+                    value={collegeForm.location}
+                    onChange={(e) => setCollegeForm((p) => ({ ...p, location: e.target.value }))}
+                    placeholder="e.g. Mangalore"
+                    className="w-full px-3 py-2 border border-border text-sm focus:outline-none focus:border-primary"
+                  />
+                </div>
+                {collegeFormError && (
+                  <p className="md:col-span-2 text-sm text-red-600">{collegeFormError}</p>
+                )}
+                <div className="md:col-span-2 flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={collegeSaving}
+                    className="px-6 py-2 bg-primary text-primary-foreground text-sm hover:bg-primary/90 disabled:opacity-60 flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    {collegeSaving ? 'Saving...' : editingCollege ? 'Update College' : 'Add College'}
+                  </button>
+                  {editingCollege && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingCollege(null);
+                        setCollegeForm({ name: '', code: '', department: '', location: '' });
+                        setCollegeFormError('');
+                      }}
+                      className="px-4 py-2 border border-border text-sm text-muted-foreground hover:text-foreground"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Colleges table */}
+          <div className="bg-card border border-border">
+            <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+              <p className="text-sm font-medium text-card-foreground">Registered Colleges</p>
+              <p className="text-xs text-muted-foreground">{colleges.length} total</p>
+            </div>
+            {collegesLoading ? (
+              <div className="px-6 py-12 text-center text-sm text-muted-foreground">Loading...</div>
+            ) : colleges.length === 0 ? (
+              <div className="px-6 py-12 text-center text-sm text-muted-foreground">No colleges found</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground">Code</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground">Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground">Dept</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground">Location</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground">Status</th>
+                      {isSuperAdmin && (
+                        <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground">Actions</th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {colleges.map((c) => (
+                      <tr key={c._id} className="hover:bg-muted/30 transition-colors">
+                        <td className="px-6 py-4 font-mono text-xs text-card-foreground">{c.code}</td>
+                        <td className="px-6 py-4 text-card-foreground">{c.name}</td>
+                        <td className="px-6 py-4 text-muted-foreground">{c.department || '—'}</td>
+                        <td className="px-6 py-4 text-muted-foreground">{c.location || '—'}</td>
+                        <td className="px-6 py-4">
+                          {isSuperAdmin ? (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleCollegeStatus(c)}
+                              className={`px-2 py-0.5 text-xs border rounded transition-colors ${
+                                c.isActive
+                                  ? 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100'
+                                  : 'border-zinc-300 text-zinc-500 bg-zinc-50 hover:bg-zinc-100'
+                              }`}
+                            >
+                              {c.isActive ? 'Active' : 'Inactive'}
+                            </button>
+                          ) : (
+                            <span className={`px-2 py-0.5 text-xs border rounded ${
+                              c.isActive
+                                ? 'border-green-300 text-green-700 bg-green-50'
+                                : 'border-zinc-300 text-zinc-500 bg-zinc-50'
+                            }`}>
+                              {c.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          )}
+                        </td>
+                        {isSuperAdmin && (
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingCollege(c);
+                                  setCollegeForm({
+                                    name: c.name,
+                                    code: c.code,
+                                    department: c.department || '',
+                                    location: c.location || '',
+                                  });
+                                  setCollegeFormError('');
+                                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }}
+                                className="p-1.5 text-muted-foreground hover:text-primary transition-colors"
+                                title="Edit"
+                              >
+                                <FileText className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteCollege(c._id)}
+                                className="p-1.5 text-muted-foreground hover:text-red-600 transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }

@@ -12,6 +12,7 @@ import assignmentsRouter from './routes/assignments.js';
 import attendanceRouter from './routes/attendance.js';
 import studentsRouter from './routes/students.js';
 import sessionsRouter from './routes/sessions.js';
+import collegesRouter from './routes/colleges.js';
 
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -51,6 +52,7 @@ app.use('/api/assignments', assignmentsRouter);
 app.use('/api/attendance', attendanceRouter);
 app.use('/api/students', studentsRouter);
 app.use('/api/sessions', sessionsRouter);
+app.use('/api/colleges', collegesRouter);
 
 // Health Check Route
 app.get('/api/health', (req, res) => {

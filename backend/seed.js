@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import connectDB from './config/db.js';
 import { sql } from './config/db.js';
 import Trainer from './models/Trainer.js';
+import College from './models/College.js';
 import Submission from './models/Submission.js';
 import Batch from './models/Batch.js';
 import Classroom from './models/Classroom.js';
@@ -83,6 +84,27 @@ const seed = async () => {
         } else {
           console.log(`Exists: ${account.email}`);
         }
+      }
+    }
+
+    // ── Colleges ────────────────────────────────────────────────────────────
+    const collegeDefs = [
+      { name: 'NMAMIT Nitte', code: 'NMAMIT-NITTE-ENG',  department: 'ENG',  location: 'Nitte' },
+      { name: 'NMAMIT Nitte', code: 'NMAMIT-NITTE-MCA',  department: 'MCA',  location: 'Nitte' },
+      { name: 'NMAMIT Nitte', code: 'NMAMIT-NITTE-POLY', department: 'POLY', location: 'Nitte' },
+      { name: 'MITE',         code: 'MITE',               department: 'ENG',  location: 'Mangalore' },
+      { name: 'SDMIT',        code: 'SDMIT-POLY',         department: 'POLY', location: 'Ujire' },
+      { name: 'SDMIT',        code: 'SDMIT-ENG',          department: 'ENG',  location: 'Ujire' },
+      { name: 'PESCE',        code: 'PESCE-ENG',          department: 'ENG',  location: 'Mandya' },
+      { name: 'PESCE',        code: 'PESCE-MCA',          department: 'MCA',  location: 'Mandya' },
+    ];
+    for (const def of collegeDefs) {
+      const existing = await College.findOne({ code: def.code });
+      if (!existing) {
+        await College.create({ ...def, isActive: true });
+        console.log(`Created college: ${def.code}`);
+      } else {
+        console.log(`College exists: ${def.code}`);
       }
     }
 

@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, Users, LogOut, FileText, Building, ClipboardList, Layers, GraduationCap } from 'lucide-react';
+import { LayoutDashboard, Users, LogOut, FileText, Building, ClipboardList, Layers, GraduationCap, School } from 'lucide-react';
 
 const SUPER_ADMIN_EMAIL = 'dlithe@gmail.com';
 
@@ -29,6 +29,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { path: '/admin/batches', label: 'Batches', icon: Layers },
     { path: '/admin/students', label: 'Students', icon: GraduationCap },
     ...(isSuperAdmin ? [{ path: '/admin/assignments', label: 'Assignments', icon: ClipboardList }] : []),
+    ...(isSuperAdmin ? [{ path: '/admin/colleges', label: 'Colleges', icon: School }] : []),
   ];
 
   return (
