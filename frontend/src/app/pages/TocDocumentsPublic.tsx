@@ -210,6 +210,7 @@ export default function TocDocumentsPublic() {
               <label className="block text-sm text-zinc-700 mb-2">Password</label>
               <input
                 type="password"
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required

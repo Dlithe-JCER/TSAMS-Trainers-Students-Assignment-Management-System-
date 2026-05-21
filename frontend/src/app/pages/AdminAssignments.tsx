@@ -8,7 +8,6 @@ import { API_URL } from '../../lib/api';
 
 const SUPER_ADMIN_EMAIL = 'dlithe@gmail.com';
 
-const COLLEGES = ['Nitte', 'MITE', 'SDMIT'];
 
 type AssignmentType = {
   _id: string;
@@ -20,18 +19,19 @@ type AssignmentType = {
   adminRemark?: string;
 };
 
-const EMPTY_FORM = { name: '', college: 'Nitte', startDate: '', endDate: '', remark: '' };
+const EMPTY_FORM = { name: '', college: '', startDate: '', endDate: '', remark: '' };
 
 export default function AdminAssignments() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  const isSuperAdmin = user?.email?.toLowerCase() === SUPER_ADMIN_EMAIL;
+  const isSuperAdmin = user?.email?.toLowerCase() === SUPER_ADMIN_EMAIL || user?.role === 'superAdmin';
 
   useEffect(() => {
     if (!authLoading && !isSuperAdmin) navigate('/admin/dashboard', { replace: true });
   }, [authLoading, isSuperAdmin]);
 
+  const [colleges, setColleges] = useState<{ code: string }[]>([]);
   const [assignments, setAssignments] = useState<AssignmentType[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -39,7 +39,7 @@ export default function AdminAssignments() {
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [editingAssignment, setEditingAssignment] = useState<AssignmentType | null>(null);
-  const [editForm, setEditForm] = useState({ name: '', college: 'Nitte', startDate: '', endDate: '', isActive: true, remark: '' });
+  const [editForm, setEditForm] = useState({ name: '', college: '', startDate: '', endDate: '', isActive: true, remark: '' });
   const [editError, setEditError] = useState('');
   const [editSaving, setEditSaving] = useState(false);
 
@@ -62,7 +62,13 @@ export default function AdminAssignments() {
   };
 
   useEffect(() => {
-    if (!authLoading && isSuperAdmin) fetchAssignments();
+    if (!authLoading && isSuperAdmin) {
+      fetchAssignments();
+      fetch(`${API_URL}/colleges`, { headers: authHeaders() })
+        .then((r) => r.json())
+        .then((d) => setColleges(Array.isArray(d) ? d : []))
+        .catch(() => {});
+    }
   }, [authLoading, isSuperAdmin]);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -208,8 +214,8 @@ export default function AdminAssignments() {
               onChange={(e) => setForm((p) => ({ ...p, college: e.target.value }))}
               className="w-full px-3 py-2 border border-border text-sm focus:outline-none focus:border-primary"
             >
-              {COLLEGES.map((c) => (
-                <option key={c} value={c}>{c}</option>
+              {colleges.map((c) => (
+                <option key={c.code} value={c.code}>{c.code}</option>
               ))}
             </select>
           </div>
@@ -360,7 +366,7 @@ export default function AdminAssignments() {
                   className="w-full px-3 py-2 border border-border text-sm focus:outline-none focus:border-primary"
                   disabled={editSaving}
                 >
-                  {COLLEGES.map((c) => <option key={c} value={c}>{c}</option>)}
+                  {colleges.map((c) => <option key={c.code} value={c.code}>{c.code}</option>)}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-4">

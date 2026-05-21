@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Link } from 'react-router';
 import { Download, Filter, ExternalLink, ShieldCheck, Shield, Plus, Trash2, FileText, ChevronDown, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -13,20 +13,13 @@ import { API_URL } from '../../lib/api';
 
 const SUPER_ADMIN_EMAIL = 'dlithe@gmail.com';
 
-const COLLEGE_EMAIL_MAP: Record<string, string> = {
-  sdmit: 'SDMIT',
-  mite: 'MITE',
-  nitte: 'Nitte',
+const normalizeBatchType = (type?: string) => {
+  if (!type) return '';
+  const normalized = type.trim().toLowerCase().replace(/[_\s]+/g, '-');
+  if (/^non[-_ ]*tech(nical)?$/.test(normalized) || normalized === 'nontechnical') return 'non-technical';
+  if (/^tech(nical)?$/.test(normalized) || normalized === 'tech') return 'technical';
+  return normalized;
 };
-
-function getCollegeAccess(email?: string): string | null {
-  if (!email) return null;
-  const lower = email.toLowerCase();
-  if (lower === SUPER_ADMIN_EMAIL) return null;
-  const prefix = lower.split('@')[0];
-  return COLLEGE_EMAIL_MAP[prefix] ?? null;
-}
-
 
 type SubmissionType = {
   _id: string;
@@ -41,8 +34,7 @@ type SubmissionType = {
   assignmentName?: string;
 };
 
-const COLLEGES = ['Nitte', 'MITE', 'SDMIT'];
-const EMPTY_ASSIGNMENT_FORM = { name: '', college: 'Nitte', startDate: '', endDate: '' };
+const EMPTY_ASSIGNMENT_FORM = { name: '', college: '', startDate: '', endDate: '' };
 
 type AssignmentType = {
   _id: string;
@@ -60,6 +52,15 @@ type CollegeSummary = {
   trainers: number;
 };
 
+type BatchDashboard = {
+  _id: string;
+  name: string;
+  college: string;
+  assignmentName?: string;
+  type: string;
+  status: string;
+};
+
 type CollegeType = {
   _id: string;
   name: string;
@@ -71,22 +72,22 @@ type CollegeType = {
 
 export default function AdminDashboard() {
   const { user } = useAuth();
-  const assignedCollege = getCollegeAccess(user?.email);
-  const isSuperAdmin = assignedCollege === null;
+  const isSuperAdmin = user?.email === SUPER_ADMIN_EMAIL || user?.role === 'superAdmin';
+  // For admins, allottedCollege is their college code stored in JWT
+  const assignedCollege = isSuperAdmin ? null : (user?.allottedCollege ?? null);
 
-  const [selectedCollege, setSelectedCollege] = useState(assignedCollege ?? 'Nitte');
+  const [selectedCollege, setSelectedCollege] = useState('');
   const [selectedAssignment, setSelectedAssignment] = useState('');
   const [selectedBatch, setSelectedBatch] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [submissions, setSubmissions] = useState<SubmissionType[]>([]);
   const [summary, setSummary] = useState<Record<string, CollegeSummary>>({});
+  const [allBatches, setAllBatches] = useState<BatchDashboard[]>([]);
   const [assignmentNames, setAssignmentNames] = useState<string[]>([]);
   const [assignmentNamesLoading, setAssignmentNamesLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-
-  const collegeOptions = isSuperAdmin ? ['Nitte', 'MITE', 'SDMIT'] : [assignedCollege!];
 
   const [activeTab, setActiveTab] = useState<'submissions' | 'assignments' | 'colleges'>('submissions');
 
@@ -129,6 +130,11 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (isSuperAdmin && activeTab === 'assignments') fetchAssignments();
   }, [activeTab, isSuperAdmin]);
+
+  // Fetch colleges on mount — drives college selector + colleges tab
+  useEffect(() => {
+    fetchColleges();
+  }, []);
 
   useEffect(() => {
     if (activeTab === 'colleges') fetchColleges();
@@ -283,19 +289,43 @@ export default function AdminDashboard() {
     }
   };
 
-  const collegeDetails: Record<string, { tagline: string; description: string }> = {
-    Nitte: {
-      tagline: 'Nitte Institute of Technology',
-      description: 'Select Nitte to view batch submissions and college-specific details.',
-    },
-    MITE: {
-      tagline: 'Mangalore Institute of Technology & Engineering',
-      description: 'Select MITE to see execution details and performance metrics.',
-    },
-    SDMIT: {
-      tagline: 'SDM Institute of Technology',
-      description: 'Select SDMIT to review ongoing training programs and assignments.',
-    },
+  // Derived from fetched colleges — no hardcoding
+  const collegeOptions = useMemo(
+    () => isSuperAdmin ? colleges.map((c) => c.code) : (assignedCollege ? [assignedCollege] : []),
+    [colleges, isSuperAdmin, assignedCollege]
+  );
+
+  // Set selectedCollege once colleges load
+  useEffect(() => {
+    if (collegeOptions.length > 0 && !selectedCollege) {
+      setSelectedCollege(assignedCollege ?? collegeOptions[0]);
+    }
+  }, [collegeOptions]);
+
+  // Re-fetch summary whenever selected college changes (keeps counts fresh)
+  useEffect(() => {
+    if (selectedCollege) fetchSummary();
+  }, [selectedCollege]);
+
+  const getCollegeInfo = (code: string) => {
+    const c = colleges.find((x) => x.code === code);
+    return {
+      tagline: c ? `${c.name}${c.department ? ` — ${c.department}` : ''}` : code,
+      description: c?.location ? `${c.location}${c.department ? ` · ${c.department}` : ''}` : `Training programs for ${code}.`,
+    };
+  };
+
+  const fetchSummary = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await fetch(`${API_URL}/summary`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setSummary(data.summaries || {});
+      }
+    } catch {}
   };
 
   useEffect(() => {
@@ -303,33 +333,28 @@ export default function AdminDashboard() {
       try {
         setIsLoading(true);
         const token = localStorage.getItem('token');
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-        };
-        if (token) {
-          headers.Authorization = `Bearer ${token}`;
-        }
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (token) headers.Authorization = `Bearer ${token}`;
 
-        const [submissionsResponse, summaryResponse] = await Promise.all([
+        const [submissionsResponse, summaryResponse, batchesResponse] = await Promise.all([
           fetch(`${API_URL}/submissions`, { headers }),
           fetch(`${API_URL}/summary`, { headers }),
+          fetch(`${API_URL}/trainers/batches`, { headers }),
         ]);
 
-        if (!submissionsResponse.ok) {
-          throw new Error('Unable to load submissions');
-        }
-        if (!summaryResponse.ok) {
-          throw new Error('Unable to load summary data');
-        }
+        if (!submissionsResponse.ok) throw new Error('Unable to load submissions');
+        if (!summaryResponse.ok) throw new Error('Unable to load summary data');
 
         const submissionsData = await submissionsResponse.json();
         const summaryData = await summaryResponse.json();
+        const batchesData = batchesResponse.ok ? await batchesResponse.json() : [];
 
         setSubmissions(submissionsData);
         setSummary(summaryData.summaries || {});
+        setAllBatches(Array.isArray(batchesData) ? batchesData : []);
         setError('');
       } catch (e) {
-        console.error('Failed to fetch submissions or summary:', e);
+        console.error('Failed to fetch dashboard data:', e);
         setError('Unable to load dashboard data');
       } finally {
         setIsLoading(false);
@@ -339,7 +364,7 @@ export default function AdminDashboard() {
     fetchData();
   }, []);
 
-  // Fetch assignment names from TocDocuments (authoritative) + merge with any in submissions
+  // Fetch assignment names from Assignments table + TocDocuments + submissions
   useEffect(() => {
     setSelectedAssignment('');
 
@@ -350,14 +375,18 @@ export default function AdminDashboard() {
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (token) headers.Authorization = `Bearer ${token}`;
 
-        const response = await fetch(
-          `${API_URL}/toc/assignment-names?college=${encodeURIComponent(selectedCollege)}`,
-          { headers }
-        );
+        const [tocRes, assignmentsRes] = await Promise.all([
+          fetch(`${API_URL}/toc/assignment-names?college=${encodeURIComponent(selectedCollege)}`, { headers }),
+          fetch(`${API_URL}/assignments/all?college=${encodeURIComponent(selectedCollege)}`, { headers }),
+        ]);
 
         let tocNames: string[] = [];
-        if (response.ok) {
-          tocNames = await response.json();
+        if (tocRes.ok) tocNames = await tocRes.json();
+
+        let assignmentNames: string[] = [];
+        if (assignmentsRes.ok) {
+          const data: AssignmentType[] = await assignmentsRes.json();
+          assignmentNames = data.map((a) => a.name);
         }
 
         // Also collect names from loaded submissions (covers submissions whose TOC was deleted)
@@ -365,7 +394,7 @@ export default function AdminDashboard() {
           .filter((s) => s.college === selectedCollege && s.assignmentName)
           .map((s) => s.assignmentName as string);
 
-        const merged = [...new Set([...tocNames, ...submissionNames])].sort();
+        const merged = [...new Set([...assignmentNames, ...tocNames, ...submissionNames])].sort();
         setAssignmentNames(merged);
       } catch {
         // Fallback: compute solely from submissions
@@ -381,12 +410,28 @@ export default function AdminDashboard() {
     fetchAssignmentNames();
   }, [selectedCollege, submissions]);
 
-  const batchNames = [...new Set(
-    submissions
-      .filter(s => s.college === selectedCollege && (!selectedAssignment || s.assignmentName === selectedAssignment))
-      .map(s => s.batchName)
-      .filter(Boolean)
-  )].sort();
+  const collegeBatches = selectedCollege
+    ? allBatches.filter((b) => b.college?.toLowerCase() === selectedCollege.toLowerCase())
+    : [];
+  const activeBatchCount = collegeBatches.filter(b => b.status?.toLowerCase() === 'active').length;
+  const inactiveBatchCount = collegeBatches.filter(b => b.status?.toLowerCase() !== 'active').length;
+  const technicalCount = collegeBatches.filter(b => normalizeBatchType(b.type) === 'technical').length;
+  const nonTechnicalCount = collegeBatches.filter(b => normalizeBatchType(b.type) === 'non-technical').length;
+  const unknownBatchCount = collegeBatches.filter(
+    (b) => {
+      const normalized = normalizeBatchType(b.type);
+      return normalized !== 'technical' && normalized !== 'non-technical';
+    }
+  ).length;
+  const totalBatchCount = collegeBatches.length;
+
+  const assignmentBatches = selectedAssignment
+    ? collegeBatches.filter(b => b.assignmentName === selectedAssignment)
+    : collegeBatches;
+
+  const batchNames = [...new Set(assignmentBatches.map(b => b.name))].sort();
+  const assignmentTechnical = assignmentBatches.filter(b => normalizeBatchType(b.type) === 'technical').length;
+  const assignmentNonTechnical = assignmentBatches.filter(b => normalizeBatchType(b.type) === 'non-technical').length;
 
   const filteredSubmissions = submissions.filter((submission) => {
     if (submission.college !== selectedCollege) return false;
@@ -847,8 +892,8 @@ export default function AdminDashboard() {
     if (y > 255) { pdf.addPage('a4', 'portrait'); y = 15; }
     secHead(`${secN + 1}.  Signatures`, y);
     y += 10;
-    const boxW = (cw - 8) / 3;
-    (['Prepared By', 'Verified By', 'College Coordinator'] as const).forEach((label, i) => {
+    const boxW = (cw - 4) / 2;
+    (['Prepared By', 'College Coordinator'] as const).forEach((label, i) => {
       const bx = ml + i * (boxW + 4);
       pdf.setFillColor(254, 242, 242);
       pdf.setDrawColor(185, 28, 28);
@@ -1097,7 +1142,7 @@ export default function AdminDashboard() {
     docChildren.push(new Table({
       rows: [
         new TableRow({
-          children: ['Prepared By', 'Verified By', 'College Coordinator'].map(label =>
+          children: ['Prepared By', 'College Coordinator'].map(label =>
             new TableCell({
               children: [
                 new Paragraph({ children: [new TextRun({ text: label, bold: true, color: 'B91C1C', size: 20 })] }),
@@ -1105,7 +1150,7 @@ export default function AdminDashboard() {
                 sp(),
                 new Paragraph({ children: [new TextRun({ text: '____________________________', size: 20 })] }),
               ],
-              width: { size: 33, type: WidthType.PERCENTAGE },
+              width: { size: 50, type: WidthType.PERCENTAGE },
             })
           ),
         }),
@@ -1221,6 +1266,23 @@ export default function AdminDashboard() {
       )}
 
 
+      {/* ── TAB NAV ── */}
+      <div className="flex border-b border-border mb-6">
+        {(['submissions', ...(isSuperAdmin ? ['assignments', 'colleges'] : [])] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab as typeof activeTab)}
+            className={`px-5 py-2.5 text-sm capitalize border-b-2 transition-colors ${
+              activeTab === tab
+                ? 'border-red-700 text-red-700'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
       {/* ── ASSIGNMENTS TAB ── */}
       {activeTab === 'assignments' && isSuperAdmin && (
         <div>
@@ -1245,7 +1307,7 @@ export default function AdminDashboard() {
                   onChange={(e) => setAssignmentForm((p) => ({ ...p, college: e.target.value }))}
                   className="w-full px-3 py-2 border border-border text-sm focus:outline-none focus:border-primary"
                 >
-                  {COLLEGES.map((c) => <option key={c} value={c}>{c}</option>)}
+                  {collegeOptions.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div>
@@ -1361,11 +1423,12 @@ export default function AdminDashboard() {
               Select College / Execution Name
               {!isSuperAdmin && <span className="ml-2 text-xs text-muted-foreground">(restricted to your college)</span>}
             </label>
-            {isSuperAdmin ? (
+            {collegeOptions.length > 0 ? (
               <select
                 value={selectedCollege}
                 onChange={(e) => { setSelectedCollege(e.target.value); setSelectedBatch(''); setSelectedAssignment(''); }}
                 className="w-full px-4 py-2 border border-border text-foreground focus:outline-none focus:border-border"
+                disabled={!isSuperAdmin && collegeOptions.length === 1}
               >
                 {collegeOptions.map((college) => (
                   <option key={college} value={college}>
@@ -1375,30 +1438,44 @@ export default function AdminDashboard() {
               </select>
             ) : (
               <div className="w-full px-4 py-2 border border-border text-foreground bg-muted/30 cursor-not-allowed">
-                {assignedCollege}
+                No college assigned
               </div>
             )}
           </div>
           <div className="rounded-xl border border-border bg-card p-4">
             <p className="text-sm text-muted-foreground">Selected:</p>
-            <p className="text-xl font-semibold text-card-foreground">{collegeDetails[selectedCollege].tagline}</p>
-            <p className="text-sm text-card-foreground mt-2">{collegeDetails[selectedCollege].description}</p>
+            <p className="text-xl font-semibold text-card-foreground">{getCollegeInfo(selectedCollege).tagline}</p>
+            <p className="text-sm text-card-foreground mt-2">{getCollegeInfo(selectedCollege).description}</p>
             <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
               <div className="rounded-lg bg-card border border-border p-3">
                 <p className="text-muted-foreground">Active Batches</p>
-                <p className="text-card-foreground font-semibold">{collegeSummary?.activeBatches ?? 0}</p>
+                <p className="text-card-foreground font-semibold">{activeBatchCount}</p>
               </div>
+              <div className="rounded-lg bg-card border border-border p-3">
+                <p className="text-muted-foreground">Inactive Batches</p>
+                <p className="text-card-foreground font-semibold">{inactiveBatchCount}</p>
+              </div>
+              <div className="rounded-lg bg-card border border-border p-3">
+                <p className="text-muted-foreground">Technical Batches</p>
+                <p className="text-card-foreground font-semibold">{technicalCount}</p>
+              </div>
+              <div className="rounded-lg bg-card border border-border p-3">
+                <p className="text-muted-foreground">Non-Technical Batches</p>
+                <p className="text-card-foreground font-semibold">{collegeSummary?.nonTechnicalBatches ?? nonTechnicalCount}</p>
+              </div>
+              {unknownBatchCount > 0 && (
+                <div className="rounded-lg bg-card border border-border p-3">
+                  <p className="text-muted-foreground">Unknown Batch Type</p>
+                  <p className="text-card-foreground font-semibold">{unknownBatchCount}</p>
+                </div>
+              )}
               <div className="rounded-lg bg-card border border-border p-3">
                 <p className="text-muted-foreground">Trainers</p>
                 <p className="text-card-foreground font-semibold">{collegeSummary?.trainers ?? 0}</p>
               </div>
               <div className="rounded-lg bg-card border border-border p-3">
-                <p className="text-muted-foreground">Technical Batches</p>
-                <p className="text-card-foreground font-semibold">{collegeSummary?.technicalBatches ?? 0}</p>
-              </div>
-              <div className="rounded-lg bg-card border border-border p-3">
-                <p className="text-muted-foreground">Non-Technical Batches</p>
-                <p className="text-card-foreground font-semibold">{collegeSummary?.nonTechnicalBatches ?? 0}</p>
+                <p className="text-muted-foreground">Total Batches</p>
+                <p className="text-card-foreground font-semibold">{totalBatchCount}</p>
               </div>
             </div>
           </div>
@@ -1441,11 +1518,11 @@ export default function AdminDashboard() {
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className="rounded-lg bg-card border border-border p-3">
                   <p className="text-muted-foreground">Technical</p>
-                  <p className="text-card-foreground font-semibold">{collegeSummary?.technicalBatches ?? 0}</p>
+                  <p className="text-card-foreground font-semibold">{assignmentTechnical}</p>
                 </div>
                 <div className="rounded-lg bg-card border border-border p-3">
                   <p className="text-muted-foreground">Non-Technical</p>
-                  <p className="text-card-foreground font-semibold">{collegeSummary?.nonTechnicalBatches ?? 0}</p>
+                  <p className="text-card-foreground font-semibold">{assignmentNonTechnical}</p>
                 </div>
               </div>
             </div>

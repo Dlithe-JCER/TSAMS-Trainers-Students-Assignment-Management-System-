@@ -139,14 +139,14 @@ function SessionCard({
       if (res.status === 409) { setState({ status: "used_today" }); return; }
       if (!res.ok) { setState({ status: "error", message: data.message || "Failed" }); return; }
       const qrUrl = `${window.location.origin}/#/attend?token=${data.token}`;
-      setState({ status: "active", token: data.token, qrUrl, timeLeft: 300 });
+      setState({ status: "active", token: data.token, qrUrl, timeLeft: 180 });
     } catch {
       setState({ status: "error", message: "Network error" });
     }
   };
 
   const fmt = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
-  const pct = state.status === "active" ? (state.timeLeft / 300) * 100 : 0;
+  const pct = state.status === "active" ? (state.timeLeft / 180) * 100 : 0;
   const urgent = state.status === "active" && state.timeLeft <= 60;
 
   return (
@@ -243,6 +243,13 @@ function StudentAttendanceSection() {
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-red-900">Session QR Codes</h3>
         <span className="text-xs text-zinc-400 font-mono">{today}</span>
+      </div>
+
+      <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-400 rounded">
+        <span className="text-red-600 font-bold text-sm mt-0.5">⚠</span>
+        <p className="text-sm text-red-700 font-medium">
+          <span className="font-bold">Note:</span> Student GPS location is monitored by AI Model. Precise location must be enabled for valid attendance.
+        </p>
       </div>
 
       <div>

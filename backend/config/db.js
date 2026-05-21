@@ -262,6 +262,15 @@ export const initDB = async () => {
     ALTER TABLE trainers ADD COLUMN IF NOT EXISTS assigned_toc_id UUID REFERENCES toc_documents(id) ON DELETE SET NULL
   `);
 
+  // Add type column to batches if not already present (idempotent migration)
+  await sql.query(`ALTER TABLE batches ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'technical'`);
+  // Backfill NULL types on rows created before the column existed
+  await sql.query(`UPDATE batches SET type = 'technical' WHERE type IS NULL`);
+
+  // Normalize legacy college values in batches to match college codes (idempotent)
+  await sql.query(`UPDATE batches SET college = 'NMAMIT-NITTE-ENG' WHERE college = 'NMAMIT-NITTE'`);
+  await sql.query(`UPDATE batches SET college = 'NMAMIT-NITTE-MCA' WHERE college = 'NMAMIT-MCA'`);
+
   await sql.query(`
     CREATE TABLE IF NOT EXISTS attendance_summary (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -5,20 +5,19 @@ import { body, validationResult } from 'express-validator';
 import Trainer from '../models/Trainer.js';
 import Batch from '../models/Batch.js';
 import TocDocument from '../models/TocDocument.js';
+import College from '../models/College.js';
 import { auth, adminAuth } from '../middleware/auth.js';
 
 const SUPER_ADMIN_EMAIL = 'dlithe@gmail.com';
-const COLLEGE_EMAIL_MAP = { sdmit: 'SDMIT', mite: 'MITE', nitte: 'Nitte' };
-
-function getAdminCollegeFilter(user) {
-  if (!user?.email) return null;
-  if (user.email === SUPER_ADMIN_EMAIL || user.role === 'superAdmin') return null;
-  const prefix = user.email.split('@')[0].toLowerCase();
-  return COLLEGE_EMAIL_MAP[prefix] ?? null;
-}
 
 function isSuperAdmin(user) {
   return user?.email === SUPER_ADMIN_EMAIL || user?.role === 'superAdmin';
+}
+
+function getAdminCollegeFilter(user) {
+  if (isSuperAdmin(user)) return null;
+  // allottedCollege is stored in JWT for admin accounts
+  return user?.allottedCollege ?? null;
 }
 
 const router = express.Router();
@@ -68,7 +67,11 @@ router.post(
         assignedTocId: assignedTocId || null,
       });
 
-      const token = jwt.sign({ id: trainer.id, role: trainer.role, email: trainer.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
+      const token = jwt.sign(
+        { id: trainer.id, role: trainer.role, email: trainer.email, allottedCollege: trainer.allottedCollege ?? null },
+        process.env.JWT_SECRET,
+        { expiresIn: '7d' }
+      );
 
       res.status(201).json({
         message: 'Trainer registered successfully',
@@ -122,7 +125,11 @@ router.post(
       const isMatch = await bcrypt.compare(password, trainer.password);
       if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
 
-      const token = jwt.sign({ id: trainer.id, role: trainer.role, email: trainer.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
+      const token = jwt.sign(
+        { id: trainer.id, role: trainer.role, email: trainer.email, allottedCollege: trainer.allottedCollege ?? null },
+        process.env.JWT_SECRET,
+        { expiresIn: '7d' }
+      );
 
       res.json({
         message: 'Login successful',
@@ -184,9 +191,15 @@ router.get('/', adminAuth, async (req, res) => {
   }
 });
 
-// Public: static college list
-router.get('/colleges/all', (req, res) => {
-  res.json(['Nitte', 'MITE', 'SDMIT']);
+// Public: college list from DB
+router.get('/colleges/all', async (req, res) => {
+  try {
+    const colleges = await College.findAll();
+    res.json(colleges.map(c => c.code));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
 });
 
 // Public: distinct assignment names from TOC documents

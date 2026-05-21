@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { Plus, Trash2, Edit2, X } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, RefreshCw } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -122,6 +122,20 @@ export default function CollegeManagement() {
       toast.success('College deleted');
     } catch {
       toast.error('Failed to delete college');
+    }
+  };
+
+  const handleResetAdmin = async (c: CollegeType) => {
+    try {
+      const res = await fetch(`${API_URL}/colleges/${c._id}/reset-admin`, {
+        method: 'POST',
+        headers: authHeaders(),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      toast.success(`Admin ready: ${data.email} / dlithe2026`);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to reset admin');
     }
   };
 
@@ -349,6 +363,14 @@ export default function CollegeManagement() {
                           title="Edit"
                         >
                           <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleResetAdmin(c)}
+                          className="p-1.5 text-muted-foreground hover:text-blue-600 transition-colors"
+                          title={`Reset admin: ${c.code.toLowerCase()}@dlithe.com`}
+                        >
+                          <RefreshCw className="w-4 h-4" />
                         </button>
                         <button
                           type="button"

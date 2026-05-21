@@ -27,17 +27,7 @@ interface Student {
   createdAt: string;
 }
 
-const ALL_COLLEGES = ['Nitte', 'MITE', 'SDMIT'];
 const SUPER_ADMIN_EMAIL = 'dlithe@gmail.com';
-const COLLEGE_EMAIL_MAP: Record<string, string> = { sdmit: 'SDMIT', mite: 'MITE', nitte: 'Nitte' };
-
-function getCollegeAccess(email?: string): string | null {
-  if (!email) return null;
-  const lower = email.toLowerCase();
-  if (lower === SUPER_ADMIN_EMAIL) return null;
-  const prefix = lower.split('@')[0];
-  return COLLEGE_EMAIL_MAP[prefix] ?? null;
-}
 
 
 const EMPTY_FORM = {
@@ -64,9 +54,10 @@ const REGISTRATION_STATUSES = ['Registered', 'Not Registered', 'Pending'];
 
 export default function StudentManagement() {
   const { user } = useAuth();
-  const assignedCollege = getCollegeAccess(user?.email);
-  const isSuperAdmin = assignedCollege === null;
-  const collegeOptions = isSuperAdmin ? ALL_COLLEGES : [assignedCollege!];
+  const isSuperAdmin = user?.email === SUPER_ADMIN_EMAIL || user?.role === 'superAdmin';
+  const assignedCollege = isSuperAdmin ? null : (user?.allottedCollege ?? null);
+  const [colleges, setColleges] = useState<{ code: string }[]>([]);
+  const collegeOptions = isSuperAdmin ? colleges.map((c) => c.code) : (assignedCollege ? [assignedCollege] : []);
 
   const getToken = () => localStorage.getItem('token');
   const authHeaders = () => ({
@@ -80,10 +71,10 @@ export default function StudentManagement() {
 
   const [showModal, setShowModal] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
-  const [formData, setFormData] = useState({ ...EMPTY_FORM, college: assignedCollege ?? 'Nitte' });
+  const [formData, setFormData] = useState({ ...EMPTY_FORM, college: assignedCollege ?? '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const [filterCollege, setFilterCollege] = useState(assignedCollege ?? 'Nitte');
+  const [filterCollege, setFilterCollege] = useState(assignedCollege ?? '');
   const [filterBatch, setFilterBatch] = useState('');
   const [filterBranch, setFilterBranch] = useState('');
   const [filterAssessment, setFilterAssessment] = useState('');
@@ -93,7 +84,26 @@ export default function StudentManagement() {
   const [importErrors, setImportErrors] = useState<string[]>([]);
   const [importing, setImporting] = useState(false);
 
-  useEffect(() => { fetchStudents(); }, []);
+  useEffect(() => {
+    if (!isSuperAdmin && assignedCollege) {
+      setFilterCollege(assignedCollege);
+    }
+  }, [assignedCollege]);
+
+  useEffect(() => {
+    const token = getToken();
+    fetch(`${API_URL}/colleges`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      .then((r) => r.json())
+      .then((d) => {
+        const list = Array.isArray(d) ? d : [];
+        setColleges(list);
+        if (!assignedCollege && list.length > 0) {
+          setFilterCollege((prev) => prev || list[0].code);
+        }
+      })
+      .catch(() => {});
+    fetchStudents();
+  }, []);
 
   const fetchStudents = async () => {
     try {
@@ -592,7 +602,7 @@ export default function StudentManagement() {
                   {isSuperAdmin ? (
                     <select value={formData.college} onChange={field('college')} className={sel}>
                       <option value="">Select College</option>
-                      {ALL_COLLEGES.map((c) => <option key={c} value={c}>{c}</option>)}
+                      {collegeOptions.map((c) => <option key={c} value={c}>{c}</option>)}
                     </select>
                   ) : (
                     <div className="px-3 py-2 border border-border text-sm bg-muted/30">{assignedCollege}</div>

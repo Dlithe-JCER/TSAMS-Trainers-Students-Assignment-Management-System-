@@ -63,6 +63,7 @@ export default function AdminLogin() {
               <label className="block text-sm text-zinc-700 mb-2">Password</label>
               <input
                 type="password"
+                autoComplete="current-password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 placeholder="Enter password"

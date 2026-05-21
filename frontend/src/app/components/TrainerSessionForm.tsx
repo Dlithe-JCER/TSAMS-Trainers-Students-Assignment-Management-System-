@@ -133,6 +133,12 @@ export default function TrainerSessionForm() {
           <h3 className="text-lg font-semibold text-zinc-900">QR Code Generated</h3>
           <p className="text-sm text-zinc-600 mt-1">Share this with your students</p>
         </div>
+        <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-400 rounded">
+          <span className="text-red-600 font-bold text-sm mt-0.5">⚠</span>
+          <p className="text-sm text-red-700 font-medium">
+            <span className="font-bold">Note:</span> GPS location is being tracked using AI Algorithm. Students must enable precise GPS location for accurate attendance verification.
+          </p>
+        </div>
         <div className="flex-1 overflow-hidden">
           <QRDisplay
             qrToken={qrToken}

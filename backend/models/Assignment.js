@@ -25,6 +25,10 @@ const Assignment = {
       clauses.push(`is_active = $${idx++}`);
       params.push(conditions.isActive);
     }
+    if (conditions.college !== undefined) {
+      clauses.push(`college = $${idx++}`);
+      params.push(conditions.college);
+    }
     const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
     const rows = await sql.query(
       `SELECT * FROM assignments ${where} ORDER BY college, name`,

@@ -33,18 +33,9 @@ interface Classroom {
   createdAt: string;
 }
 
-const ALL_COLLEGES = ['Nitte', 'MITE', 'SDMIT'];
 const SUPER_ADMIN_EMAIL = 'dlithe@gmail.com';
-const COLLEGE_EMAIL_MAP: Record<string, string> = { sdmit: 'SDMIT', mite: 'MITE', nitte: 'Nitte' };
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
-function getCollegeAccess(email?: string): string | null {
-  if (!email) return null;
-  const lower = email.toLowerCase();
-  if (lower === SUPER_ADMIN_EMAIL) return null;
-  const prefix = lower.split('@')[0];
-  return COLLEGE_EMAIL_MAP[prefix] ?? null;
-}
 
 function parseDescription(desc: string) {
   const result = { block: '', projector: '', type: '' };
@@ -115,9 +106,10 @@ const emptyForm = {
 
 export default function ClassroomManagement() {
   const { user } = useAuth();
-  const assignedCollege = getCollegeAccess(user?.email);
-  const isSuperAdmin = assignedCollege === null;
-  const collegeOptions = isSuperAdmin ? ALL_COLLEGES : [assignedCollege!];
+  const isSuperAdmin = user?.email === SUPER_ADMIN_EMAIL || user?.role === 'superAdmin';
+  const assignedCollege = isSuperAdmin ? null : (user?.allottedCollege ?? null);
+  const [colleges, setColleges] = useState<{ code: string }[]>([]);
+  const collegeOptions = isSuperAdmin ? colleges.map((c) => c.code) : (assignedCollege ? [assignedCollege] : []);
 
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
@@ -140,6 +132,11 @@ export default function ClassroomManagement() {
   const getToken = () => localStorage.getItem('token');
 
   useEffect(() => {
+    const token = getToken();
+    fetch(`${API_URL}/colleges`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      .then((r) => r.json())
+      .then((d) => setColleges(Array.isArray(d) ? d : []))
+      .catch(() => {});
     fetchClassrooms();
     fetchBatches();
     fetchAssignments();
@@ -817,7 +814,7 @@ export default function ClassroomManagement() {
                     disabled={bulkUploading}
                   >
                     <option value="">Select college</option>
-                    {ALL_COLLEGES.map((c) => <option key={c} value={c}>{c}</option>)}
+                    {collegeOptions.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
                 ) : (
                   <div className="w-full px-4 py-2 border border-border bg-muted/30 text-card-foreground cursor-not-allowed">

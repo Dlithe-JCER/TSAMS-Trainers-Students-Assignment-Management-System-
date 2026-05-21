@@ -6,14 +6,13 @@ import { toast } from 'sonner';
 import { API_URL } from '../../lib/api';
 
 const SUPER_ADMIN_EMAIL = 'dlithe@gmail.com';
-const COLLEGES = ['Nitte', 'MITE', 'SDMIT'];
 const BATCH_TYPES = ['technical', 'non-technical'];
 const BATCH_STATUSES = ['active', 'completed', 'inactive'];
 
 const EMPTY_BATCH_FORM = {
   name: '',
   assignmentName: '',
-  college: 'Nitte',
+  college: '',
   type: 'technical',
   status: 'active',
   startDate: '',
@@ -54,6 +53,7 @@ export default function AdminBatches() {
   const assignedCollege = getCollegeAccess(user?.email);
 
   const [batches, setBatches] = useState<BatchType[]>([]);
+  const [collegeOptions, setCollegeOptions] = useState<string[]>([]);
   const [assignments, setAssignments] = useState<AssignmentType[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(EMPTY_BATCH_FORM);
@@ -103,6 +103,14 @@ export default function AdminBatches() {
     if (!authLoading) {
       fetchBatches();
       fetchAssignments();
+      fetch(`${API_URL}/colleges`, { headers: authHeaders() })
+        .then((r) => r.json())
+        .then((d) => {
+          const codes = Array.isArray(d) ? d.map((c: { code: string }) => c.code) : [];
+          setCollegeOptions(codes);
+          if (codes.length > 0) setForm((prev) => ({ ...prev, college: prev.college || codes[0] }));
+        })
+        .catch(() => {});
     }
   }, [authLoading, isSuperAdmin]);
 
@@ -273,7 +281,7 @@ export default function AdminBatches() {
                 onChange={(e) => setForm((prev) => ({ ...prev, college: e.target.value }))}
                 className="w-full rounded border border-border px-3 py-2 text-sm focus:border-primary focus:outline-none"
               >
-                {COLLEGES.map((college) => (
+                {collegeOptions.map((college) => (
                   <option key={college} value={college}>
                     {college}
                   </option>
@@ -473,7 +481,7 @@ export default function AdminBatches() {
                 onChange={(e) => setEditForm((prev) => ({ ...prev, college: e.target.value }))}
                 className="w-full rounded border border-border px-3 py-2 text-sm focus:border-primary focus:outline-none"
               >
-                {COLLEGES.map((college) => (
+                {collegeOptions.map((college) => (
                   <option key={college} value={college}>{college}</option>
                 ))}
               </select>

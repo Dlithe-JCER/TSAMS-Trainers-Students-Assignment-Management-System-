@@ -61,6 +61,7 @@ const Batch = {
         data.startDate || data.start_date || null,
         data.endDate || data.end_date || null,
       ]
+      
     );
     return mapRow(rows[0]);
   },

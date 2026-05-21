@@ -15,7 +15,7 @@ export default function QRDisplay({
   onExpire,
   onGenerate,
 }: QRDisplayProps) {
-  const [timeLeft, setTimeLeft] = useState(300);
+  const [timeLeft, setTimeLeft] = useState(180);
   const [isExpired, setIsExpired] = useState(false);
 
   useEffect(() => {
@@ -80,12 +80,12 @@ export default function QRDisplay({
       <div className="w-full bg-zinc-200 rounded-full h-2 overflow-hidden">
         <div
           className="bg-red-900 h-full transition-all duration-1000"
-          style={{ width: `${(timeLeft / 300) * 100}%` }}
+          style={{ width: `${(timeLeft / 180) * 100}%` }}
         />
       </div>
 
       <p className="text-xs text-zinc-500 text-center max-w-xs">
-        Share this QR code with students. They have 5 minutes to scan it for attendance.
+        Share this QR code with students. They have 3 minutes to scan it for attendance.
       </p>
     </div>
   );

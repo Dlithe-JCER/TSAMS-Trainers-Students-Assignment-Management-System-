@@ -26,6 +26,7 @@ export default function StudentAttendanceScanner() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [submitTimeLeft, setSubmitTimeLeft] = useState<number | null>(null);
 
   const { coordinates, getLocation, loading: gpsLoading, error: gpsError } = useGPS();
   useTabLock(!!qrToken && !submitted);
@@ -67,6 +68,24 @@ export default function StudentAttendanceScanner() {
       }
     };
   }, [submitted]);
+
+  useEffect(() => {
+    if (!qrToken || submitted) { setSubmitTimeLeft(null); return; }
+    setSubmitTimeLeft(60);
+  }, [qrToken, submitted]);
+
+  useEffect(() => {
+    if (submitTimeLeft === null) return;
+    if (submitTimeLeft <= 0) {
+      setQrToken('');
+      setSubmitTimeLeft(null);
+      setError('Submission time expired. Please scan the QR again.');
+      if (scannerRef.current) scannerRef.current.resume().catch(() => {});
+      return;
+    }
+    const t = setTimeout(() => setSubmitTimeLeft((prev) => (prev !== null ? prev - 1 : null)), 1000);
+    return () => clearTimeout(t);
+  }, [submitTimeLeft]);
 
   const validateQRAndMarkAttendance = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -273,6 +292,25 @@ export default function StudentAttendanceScanner() {
         <p className="text-xs text-zinc-500 text-center p-2 bg-zinc-50 rounded">
           QR Code Scanned: <span className="font-mono text-zinc-700">{qrToken.substring(0, 8)}...</span>
         </p>
+      )}
+
+      {submitTimeLeft !== null && (
+        <div className={`p-3 rounded border ${submitTimeLeft <= 15 ? 'bg-red-50 border-red-400' : 'bg-amber-50 border-amber-300'}`}>
+          <div className="flex items-center justify-between mb-1">
+            <p className={`text-xs font-semibold ${submitTimeLeft <= 15 ? 'text-red-700' : 'text-amber-700'}`}>
+              ⚠ Submit attendance within
+            </p>
+            <span className={`text-sm font-mono font-bold ${submitTimeLeft <= 15 ? 'text-red-700' : 'text-amber-700'}`}>
+              {String(Math.floor(submitTimeLeft / 60)).padStart(2, '0')}:{String(submitTimeLeft % 60).padStart(2, '0')}
+            </span>
+          </div>
+          <div className="w-full h-1.5 bg-zinc-200 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-1000 ${submitTimeLeft <= 15 ? 'bg-red-500' : 'bg-amber-400'}`}
+              style={{ width: `${(submitTimeLeft / 60) * 100}%` }}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

@@ -29,17 +29,7 @@ interface TocDoc {
   level: string;
 }
 
-const ALL_COLLEGES = ['Nitte', 'MITE', 'SDMIT'];
 const SUPER_ADMIN_EMAIL = 'dlithe@gmail.com';
-const COLLEGE_EMAIL_MAP: Record<string, string> = { sdmit: 'SDMIT', mite: 'MITE', nitte: 'Nitte' };
-
-function getCollegeAccess(email?: string): string | null {
-  if (!email) return null;
-  const lower = email.toLowerCase();
-  if (lower === SUPER_ADMIN_EMAIL) return null;
-  const prefix = lower.split('@')[0];
-  return COLLEGE_EMAIL_MAP[prefix] ?? null;
-}
 
 function generateUsername(name: string) {
   const base = name.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -50,9 +40,10 @@ function generateUsername(name: string) {
 
 export default function TrainerManagement() {
   const { user } = useAuth();
-  const assignedCollege = getCollegeAccess(user?.email);
-  const isSuperAdmin = assignedCollege === null;
-  const collegeOptions = isSuperAdmin ? ALL_COLLEGES : [assignedCollege!];
+  const isSuperAdmin = user?.email === SUPER_ADMIN_EMAIL || user?.role === 'superAdmin';
+  const assignedCollege = isSuperAdmin ? null : (user?.allottedCollege ?? null);
+  const [colleges, setColleges] = useState<{ code: string }[]>([]);
+  const collegeOptions = isSuperAdmin ? colleges.map((c) => c.code) : (assignedCollege ? [assignedCollege] : []);
 
   const getToken = () => localStorage.getItem('token');
 
@@ -81,6 +72,15 @@ export default function TrainerManagement() {
   const [tocDocuments, setTocDocuments] = useState<TocDoc[]>([]);
   const [tocLoading, setTocLoading] = useState(false);
 
+  // Fetch colleges from API — no hardcoding
+  useEffect(() => {
+    const token = getToken();
+    fetch(`${API_URL}/colleges`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      .then((r) => r.json())
+      .then((d) => setColleges(Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }, []);
+
   // Fetch trainers on mount
   useEffect(() => {
     fetchTrainers();
@@ -97,8 +97,8 @@ export default function TrainerManagement() {
           headers.Authorization = `Bearer ${token}`;
         }
 
-        const response = await fetch(`${API_URL}/trainers/batches/all`, {
-          headers,
+        const response = await fetch(`${API_URL}/trainers/batches`, {
+          headers: { ...headers, Authorization: `Bearer ${getToken()}` },
         });
 
         if (!response.ok) {
@@ -421,7 +421,18 @@ export default function TrainerManagement() {
                       <td className="px-6 py-4 text-sm text-card-foreground">{trainer.allottedLevel || 'N/A'}</td>
                       <td className="px-6 py-4 text-sm text-card-foreground">{trainer.assignmentName || 'N/A'}</td>
                       <td className="px-6 py-4 text-sm text-card-foreground">
-                        {trainer.allottedBatch ? batches.find(b => b._id === trainer.allottedBatch)?.name || 'Unknown' : 'N/A'}
+                        {(() => {
+                          const batch = trainer.allottedBatch ? batches.find(b => b._id === trainer.allottedBatch) : null;
+                          if (!batch) return trainer.allottedBatch ? 'Unknown' : 'N/A';
+                          return (
+                            <span className="flex items-center gap-1.5">
+                              {batch.name}
+                              <span className={`px-1.5 py-0.5 text-xs border rounded ${batch.type === 'technical' ? 'border-blue-300 text-blue-700 bg-blue-50' : 'border-purple-300 text-purple-700 bg-purple-50'}`}>
+                                {batch.type === 'technical' ? 'Tech' : 'Non-Tech'}
+                              </span>
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="px-6 py-4 text-sm text-muted-foreground">
                         {new Date(trainer.createdAt).toLocaleDateString()}
@@ -588,10 +599,10 @@ export default function TrainerManagement() {
                     {batchesLoading ? 'Loading batches...' : !formData.allottedCollege ? 'Select college first' : 'Select batch'}
                   </option>
                   {batches
-                    .filter((b) => !formData.allottedCollege || b.college === formData.allottedCollege)
+                    .filter((b) => !formData.allottedCollege || b.college?.toLowerCase() === formData.allottedCollege.toLowerCase())
                     .map((batch) => (
                       <option key={batch._id} value={batch._id}>
-                        {batch.name}
+                        {batch.name} — {batch.type === 'technical' ? 'Technical' : 'Non-Technical'}
                       </option>
                     ))}
                 </select>

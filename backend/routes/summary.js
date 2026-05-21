@@ -1,34 +1,48 @@
 import express from 'express';
 import Batch from '../models/Batch.js';
 import Trainer from '../models/Trainer.js';
+import College from '../models/College.js';
 import { adminAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
-const ALL_COLLEGES = ['Nitte', 'MITE', 'SDMIT'];
 const SUPER_ADMIN_EMAIL = 'dlithe@gmail.com';
-const COLLEGE_EMAIL_MAP = { sdmit: 'SDMIT', mite: 'MITE', nitte: 'Nitte' };
 
-function getAdminColleges(user) {
-  if (!user?.email) return ALL_COLLEGES;
-  if (user.email === SUPER_ADMIN_EMAIL || user.role === 'superAdmin') return ALL_COLLEGES;
-  const prefix = user.email.split('@')[0].toLowerCase();
-  const college = COLLEGE_EMAIL_MAP[prefix];
-  return college ? [college] : ALL_COLLEGES;
+function isSuperAdmin(user) {
+  return user?.email === SUPER_ADMIN_EMAIL || user?.role === 'superAdmin';
+}
+
+function normalizeBatchType(type) {
+  if (!type) return '';
+  const normalized = String(type).trim().toLowerCase().replace(/[_\s]+/g, '-');
+  if (/^non[-_ ]*tech(nical)?$/.test(normalized) || normalized === 'nontechnical') return 'non-technical';
+  if (/^tech(nical)?$/.test(normalized) || normalized === 'tech') return 'technical';
+  return normalized;
 }
 
 router.get('/', adminAuth, async (req, res) => {
   try {
-    const colleges = getAdminColleges(req.user);
-    const summaries = {};
+    let collegeCodes;
 
-    for (const college of colleges) {
-      const [activeBatches, technicalBatches, nonTechnicalBatches, trainers] = await Promise.all([
-        Batch.countDocuments({ college, status: 'active' }),
-        Batch.countDocuments({ college, status: 'active', type: 'technical' }),
-        Batch.countDocuments({ college, status: 'active', type: 'non-technical' }),
-        Trainer.countDocuments({ college }),
-      ]);
+    if (isSuperAdmin(req.user)) {
+      const all = await College.findAll();
+      collegeCodes = all.map(c => c.code);
+    } else {
+      const college = req.user?.allottedCollege;
+      collegeCodes = college ? [college] : [];
+    }
+
+    const summaries = {};
+    for (const college of collegeCodes) {
+      const batches = (await Batch.find()).filter(
+        (batch) => batch.college?.toLowerCase() === college.toLowerCase()
+      );
+      const trainers = await Trainer.countDocuments({ allottedCollege: college, role: 'trainer' });
+
+      const activeBatches = batches.filter(b => !b.status || b.status.toLowerCase() === 'active').length;
+      const technicalBatches = batches.filter(b => normalizeBatchType(b.type) === 'technical').length;
+      const nonTechnicalBatches = batches.filter(b => normalizeBatchType(b.type) === 'non-technical').length;
+
       summaries[college] = { activeBatches, technicalBatches, nonTechnicalBatches, trainers };
     }
 

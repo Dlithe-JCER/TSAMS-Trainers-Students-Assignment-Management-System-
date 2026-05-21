@@ -3,6 +3,7 @@ import { Download, Eye, UploadCloud, Edit2, Trash2 } from 'lucide-react';
 import AdminLayout from '../components/AdminLayout';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../../lib/api';
+import { toast } from 'sonner';
 
 const SUPER_ADMIN_EMAIL = 'dlithe@gmail.com';
 
@@ -24,22 +25,24 @@ type Assignment = {
 
 export default function TocDocuments() {
   const { user } = useAuth();
-  const isSuperAdmin = user?.email?.toLowerCase() === SUPER_ADMIN_EMAIL;
+  const isSuperAdmin = user?.email?.toLowerCase() === SUPER_ADMIN_EMAIL || user?.role === 'superAdmin';
+  const assignedCollege = isSuperAdmin ? null : (user?.allottedCollege ?? null);
 
   const [docs, setDocs] = useState<TocDocument[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [colleges, setColleges] = useState<{ code: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [college, setCollege] = useState('Nitte');
+  const [college, setCollege] = useState(assignedCollege ?? '');
   const [assignmentName, setAssignmentName] = useState('');
   const [title, setTitle] = useState('');
   const [file, setFile] = useState<File | null>(null);
-  const [level, setLevel] = useState('Level 1');
+  const [level, setLevel] = useState('Basic to Intermediate');
   const [uploading, setUploading] = useState(false);
   const [editingDoc, setEditingDoc] = useState<TocDocument | null>(null);
 
-  const collegeOptions = ['Nitte', 'MITE', 'SDMIT'];
-  const levelOptions = ['Level 1', 'Level 2', 'Level 3', 'Level 4'];
+  const collegeOptions = isSuperAdmin ? colleges.map((c) => c.code) : (assignedCollege ? [assignedCollege] : []);
+  const levelOptions = ['Basic to Intermediate', 'Intermediate to Advanced', 'Generic'];
 
   const filteredAssignments = assignments.filter((a) => a.college === college);
 
@@ -82,16 +85,25 @@ export default function TocDocuments() {
   };
 
   useEffect(() => {
+    const token = localStorage.getItem('token');
+    fetch(`${API_URL}/colleges`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      .then((r) => r.json())
+      .then((d) => {
+        const list = Array.isArray(d) ? d : [];
+        setColleges(list);
+        if (!assignedCollege && list.length > 0) setCollege((prev) => prev || list[0].code);
+      })
+      .catch(() => {});
     fetchDocs();
     fetchAssignments();
   }, []);
 
   const resetForm = () => {
-    setCollege('Nitte');
+    setCollege(assignedCollege ?? colleges[0]?.code ?? '');
     setAssignmentName('');
     setTitle('');
     setFile(null);
-    setLevel('Level 1');
+    setLevel('Basic to Intermediate');
     setEditingDoc(null);
     setError('');
   };
@@ -142,11 +154,14 @@ export default function TocDocuments() {
         throw new Error(data.message || 'Upload failed');
       }
 
+      toast.success(editingDoc ? 'TOC document updated' : 'TOC document uploaded');
       resetForm();
       fetchDocs();
     } catch (uploadError) {
       console.error(uploadError);
-      setError((uploadError as Error).message || 'Upload failed');
+      const msg = (uploadError as Error).message || 'Upload failed';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setUploading(false);
     }

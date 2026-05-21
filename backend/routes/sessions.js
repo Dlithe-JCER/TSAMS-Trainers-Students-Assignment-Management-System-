@@ -74,8 +74,8 @@ router.post('/generate', async (req, res) => {
       });
     }
 
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-    const submitUntil = new Date(expiresAt.getTime() + 8 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 3 * 60 * 1000);
+    const submitUntil = new Date(expiresAt.getTime() + 1 * 60 * 1000);
 
     const sessionToken = await SessionToken.create({
       session,
@@ -96,7 +96,7 @@ router.post('/generate', async (req, res) => {
     res.status(201).json({
       token: sessionToken.token,
       expiresAt: sessionToken.expiresAt,
-      expiresIn: 300,
+      expiresIn: 180,
     });
   } catch (err) {
     console.error('Generate session token error:', err);
