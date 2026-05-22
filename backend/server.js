@@ -16,10 +16,19 @@ import collegesRouter from './routes/colleges.js';
 
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 dotenv.config();
 
 const app = express();
+
+// Current directory setup
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Ensure uploads directory exists (Render / cloud envs don't persist it)
+const uploadsDir = path.join(__dirname, 'uploads');
+fs.mkdirSync(uploadsDir, { recursive: true });
 
 // Middleware
 app.use(
@@ -32,15 +41,11 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Static uploads folder — registered before routes so it never hits the 404 handler
+app.use('/uploads', express.static(uploadsDir));
+
 // Connect Database
 await connectDB();
-
-// Current directory setup
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Static uploads folder
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // API Routes
 app.use('/api/trainers', trainersRouter);
