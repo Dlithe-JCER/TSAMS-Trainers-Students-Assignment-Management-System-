@@ -258,7 +258,7 @@ export default function StudentManagement() {
       'Registration Status': 'Registered', 'Personal Email': 'aditya@gmail.com',
       'Contact Number': '9876543210', 'Form Programming Language': 'Python',
       'Tool Programming Language': 'VS Code', 'Question Title': 'Arrays & Strings',
-      'Assessment Status': 'Completed', 'Assigned Batch': 'CS-A', College: 'Nitte',
+      'Assessment Status': 'Completed', 'Assigned Batch': 'CS-A',
     }]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Students');
@@ -282,7 +282,7 @@ export default function StudentManagement() {
           if (!usn) errs.push(`Row ${i + 2}: USN missing`);
           return {
             name, usn,
-            college: String(row['College'] || row['college'] || filterCollege).trim(),
+            college: filterCollege,
             sec: String(row['Section'] || row['sec'] || '').trim(),
             sem: String(row['Semester'] || row['sem'] || '').trim(),
             branch: String(row['Branch'] || row['branch'] || '').trim(),
@@ -396,7 +396,14 @@ export default function StudentManagement() {
 
       {/* Import / Export */}
       <div className="bg-card border border-border p-5 mb-5">
-        <h2 className="text-sm font-medium text-card-foreground mb-3">Bulk Import / Export</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-medium text-card-foreground">Bulk Import / Export</h2>
+          {filterCollege && (
+            <span className="text-xs text-muted-foreground border border-border px-2 py-1">
+              Importing into: <span className="font-medium text-card-foreground">{filterCollege}</span>
+            </span>
+          )}
+        </div>
         <div className="flex flex-wrap gap-3 items-center">
           {isSuperAdmin && (
             <>
