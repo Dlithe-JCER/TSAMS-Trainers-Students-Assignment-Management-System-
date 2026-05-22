@@ -453,6 +453,11 @@ export default function AdminDashboard() {
     return submissionDate >= new Date(startDate) && submissionDate <= new Date(endDate);
   });
 
+  
+
+  const reportSubmittedTo = 'Principal, Head of the Departments, Placements Training and Industry Relations, NMAM Institute Of Technology (NMAMIT), Nitte';
+  const reportSubmittedBy = 'DLithe Consultancy Services Pvt. Ltd. Bengaluru';
+
   const handleExport = () => {
     const byBatch = filteredSubmissions.reduce<Record<string, SubmissionType[]>>((acc, s) => {
       const key = s.batchName || 'Unknown Batch';
@@ -657,6 +662,8 @@ export default function AdminDashboard() {
       body: [
         ['College Name', selectedCollege],
         ['Batch / Assignment', selectedBatch || selectedAssignment || '—'],
+        ['Submitted To', reportSubmittedTo],
+        ['Submitted By', reportSubmittedBy],
         ['Report Period', `${startDate ? new Date(startDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'All'}  →  ${endDate ? new Date(endDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'All'}`],
         ['Prepared By', '_______________________________'],
         ['Generated On', new Date().toLocaleString('en-IN')],
@@ -726,37 +733,7 @@ export default function AdminDashboard() {
       margin: { left: lml, right: lmr },
     });
 
-    // ── 4. TOPICS COVERAGE SUMMARY (portrait) ─────────────────────────────
-    pdf.addPage('a4', 'portrait');
-    pdf.setFillColor(185, 28, 28);
-    pdf.rect(0, 0, pw, 12, 'F');
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(10);
-    pdf.setTextColor(255, 255, 255);
-    pdf.text('4.  Topics Coverage Summary', pw / 2, 8, { align: 'center' });
-    const topicRows: string[][] = [];
-    filteredSubmissions.forEach(s => {
-      s.topicsCovered.split(',').map(t => t.trim()).filter(Boolean).forEach(topic => {
-        topicRows.push([
-          topic,
-          new Date(s.sessionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-          s.trainerName,
-          s.batchName,
-        ]);
-      });
-    });
-    autoTable(pdf, {
-      startY: 15,
-      head: [['Topic', 'Covered On', 'Trainer', 'Batch']],
-      body: topicRows.length > 0 ? topicRows : [['No topics data available', '—', '—', '—']],
-      headStyles: { fillColor: [185, 28, 28], fontSize: 9 },
-      bodyStyles: { fontSize: 8.5 },
-      theme: 'striped',
-      alternateRowStyles: { fillColor: [254, 242, 242] },
-      margin: { left: ml, right: mr },
-    });
-    y = (pdf as any).lastAutoTable.finalY + 10;
-    if (y > 210) { pdf.addPage('a4', 'portrait'); y = 15; }
+    
 
     // ── 5. RESOURCE LINKS ─────────────────────────────────────────────────
     secHead('5.  Resource Links', y);
@@ -984,6 +961,8 @@ export default function AdminDashboard() {
         rows: [
           new TableRow({ children: [infoCell('College Name', true), infoCell(selectedCollege)] }),
           new TableRow({ children: [infoCell('Batch / Assignment', true), infoCell(selectedBatch || selectedAssignment || '—')] }),
+          new TableRow({ children: [infoCell('Submitted To', true), infoCell(reportSubmittedTo)] }),
+          new TableRow({ children: [infoCell('Submitted By', true), infoCell(reportSubmittedBy)] }),
           new TableRow({ children: [infoCell('Report Period', true), infoCell(`${startDate ? new Date(startDate).toLocaleDateString() : 'All'}  →  ${endDate ? new Date(endDate).toLocaleDateString() : 'All'}`)] }),
           new TableRow({ children: [infoCell('Prepared By', true), infoCell('___________________________')] }),
           new TableRow({ children: [infoCell('Generated On', true), infoCell(new Date().toLocaleString('en-IN'))] }),
@@ -1034,27 +1013,7 @@ export default function AdminDashboard() {
       }),
       sp(),
 
-      H('4.  Topics Coverage Summary', HeadingLevel.HEADING_1),
-      new Table({
-        rows: [
-          new TableRow({ tableHeader: true, children: ['Topic', 'Covered On', 'Trainer', 'Batch'].map(hCell) }),
-          ...filteredSubmissions.flatMap(s =>
-            s.topicsCovered.split(',').map(t => t.trim()).filter(Boolean).map(topic =>
-              new TableRow({
-                children: [
-                  topic,
-                  new Date(s.sessionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-                  s.trainerName,
-                  s.batchName,
-                ].map(dCell),
-              })
-            )
-          ),
-        ],
-        width: { size: 100, type: WidthType.PERCENTAGE },
-      }),
-      sp(),
-
+      
       H('5.  Resource Links', HeadingLevel.HEADING_1),
       new Paragraph({ children: [new TextRun({ text: 'A.  GitHub Repository Links', bold: true, size: 20 })] }),
       new Table({
@@ -1897,3 +1856,8 @@ export default function AdminDashboard() {
     </AdminLayout>
   );
 }
+
+
+
+
+
