@@ -71,11 +71,20 @@ function toDateInput(iso?: string) {
 /** Converts an Excel cell value (Date object, serial number, or string) to YYYY-MM-DD. */
 function excelDateToISO(val: any): string {
   if (!val && val !== 0) return '';
-  if (val instanceof Date) return val.toISOString().slice(0, 10);
+  if (val instanceof Date) {
+    // Use local date parts to avoid UTC timezone shift (e.g. IST -5:30 moving date back 1 day)
+    const y = val.getFullYear();
+    const m = String(val.getMonth() + 1).padStart(2, '0');
+    const d = String(val.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
   if (typeof val === 'number') {
     // Excel serial: days since 1900-01-00 (with Lotus 1-2-3 leap-year bug offset)
     const d = new Date((val - 25569) * 86400 * 1000);
-    return d.toISOString().slice(0, 10);
+    const y = d.getUTCFullYear();
+    const mo = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(d.getUTCDate()).padStart(2, '0');
+    return `${y}-${mo}-${dd}`;
   }
   return String(val).trim();
 }

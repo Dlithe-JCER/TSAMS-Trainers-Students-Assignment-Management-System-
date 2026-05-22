@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Link } from 'react-router';
-import { Download, Filter, ExternalLink, ShieldCheck, Shield, Plus, Trash2, FileText, ChevronDown, X } from 'lucide-react';
+import { Download, Filter, ExternalLink, ShieldCheck, Shield, FileText, ChevronDown, X } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -33,8 +33,6 @@ type SubmissionType = {
   college?: string;
   assignmentName?: string;
 };
-
-const EMPTY_ASSIGNMENT_FORM = { name: '', college: '', startDate: '', endDate: '' };
 
 type AssignmentType = {
   _id: string;
@@ -73,7 +71,6 @@ type CollegeType = {
 export default function AdminDashboard() {
   const { user } = useAuth();
   const isSuperAdmin = user?.email === SUPER_ADMIN_EMAIL || user?.role === 'superAdmin';
-  // For admins, allottedCollege is their college code stored in JWT
   const assignedCollege = isSuperAdmin ? null : (user?.allottedCollege ?? null);
 
   const [selectedCollege, setSelectedCollege] = useState('');
@@ -89,220 +86,43 @@ export default function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const [activeTab, setActiveTab] = useState<'submissions' | 'assignments' | 'colleges'>('submissions');
-
-  // Assignment management state (super admin only)
-  const [assignments, setAssignments] = useState<AssignmentType[]>([]);
-  const [assignmentsLoading, setAssignmentsLoading] = useState(false);
-  const [assignmentForm, setAssignmentForm] = useState(EMPTY_ASSIGNMENT_FORM);
-  const [assignmentFormError, setAssignmentFormError] = useState('');
-  const [assignmentSaving, setAssignmentSaving] = useState(false);
-  const [assignmentFilter, setAssignmentFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [showReportMenu, setShowReportMenu] = useState(false);
   const reportMenuRef = useRef<HTMLDivElement>(null);
 
-  // College management state
   const [colleges, setColleges] = useState<CollegeType[]>([]);
-  const [collegesLoading, setCollegesLoading] = useState(false);
-  const [collegeForm, setCollegeForm] = useState({ name: '', code: '', department: '', location: '' });
-  const [collegeFormError, setCollegeFormError] = useState('');
-  const [collegeSaving, setCollegeSaving] = useState(false);
-  const [editingCollege, setEditingCollege] = useState<CollegeType | null>(null);
+
+  const [attendanceSummaryLoading, setAttendanceSummaryLoading] = useState(false);
 
   const authHeaders = () => ({
     'Content-Type': 'application/json',
     Authorization: `Bearer ${localStorage.getItem('token')}`,
   });
 
-  const fetchAssignments = async () => {
-    setAssignmentsLoading(true);
-    try {
-      const res = await fetch(`${API_URL}/assignments/all`, { headers: authHeaders() });
-      const data = await res.json();
-      setAssignments(Array.isArray(data) ? data : []);
-    } catch {
-      setAssignments([]);
-    } finally {
-      setAssignmentsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (isSuperAdmin && activeTab === 'assignments') fetchAssignments();
-  }, [activeTab, isSuperAdmin]);
-
-  // Fetch colleges on mount — drives college selector + colleges tab
-  useEffect(() => {
-    fetchColleges();
-  }, []);
-
-  useEffect(() => {
-    if (activeTab === 'colleges') fetchColleges();
-  }, [activeTab]);
-
-  const handleCreateAssignment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!assignmentForm.name.trim()) {
-      setAssignmentFormError('Assignment name is required');
-      return;
-    }
-    setAssignmentFormError('');
-    setAssignmentSaving(true);
-    try {
-      const res = await fetch(`${API_URL}/assignments`, {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify(assignmentForm),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to create');
-      setAssignmentForm(EMPTY_ASSIGNMENT_FORM);
-      fetchAssignments();
-    } catch (err: any) {
-      setAssignmentFormError(err.message || 'Failed to create assignment');
-    } finally {
-      setAssignmentSaving(false);
-    }
-  };
-
-  const handleToggleAssignment = async (a: AssignmentType) => {
-    try {
-      const res = await fetch(`${API_URL}/assignments/${a._id}`, {
-        method: 'PUT',
-        headers: authHeaders(),
-        body: JSON.stringify({ ...a, isActive: !a.isActive }),
-      });
-      const data = await res.json();
-      setAssignments((prev) => prev.map((x) => (x._id === a._id ? data : x)));
-      toast.success('Assignment updated');
-    } catch {
-      toast.error('Failed to update assignment');
-    }
-  };
-
-  const handleDeleteAssignment = async (id: string) => {
-    if (!confirm('Delete this assignment? This cannot be undone.')) return;
-    try {
-      await fetch(`${API_URL}/assignments/${id}`, { method: 'DELETE', headers: authHeaders() });
-      setAssignments((prev) => prev.filter((a) => a._id !== id));
-      toast.success('Assignment deleted');
-    } catch {
-      toast.error('Failed to delete assignment');
-    }
-  };
-
-  const filteredAssignments = assignments.filter((a) =>
-    assignmentFilter === 'all' ? true : assignmentFilter === 'active' ? a.isActive : !a.isActive
-  );
-
   const fetchColleges = async () => {
-    setCollegesLoading(true);
     try {
       const res = await fetch(`${API_URL}/colleges`, { headers: authHeaders() });
       const data = await res.json();
       setColleges(Array.isArray(data) ? data : []);
     } catch {
       setColleges([]);
-    } finally {
-      setCollegesLoading(false);
     }
   };
 
-  const handleCreateCollege = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!collegeForm.name.trim() || !collegeForm.code.trim()) {
-      setCollegeFormError('Name and code are required');
-      return;
-    }
-    setCollegeFormError('');
-    setCollegeSaving(true);
-    try {
-      const res = await fetch(`${API_URL}/colleges`, {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify(collegeForm),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to create');
-      setCollegeForm({ name: '', code: '', department: '', location: '' });
-      fetchColleges();
-      toast.success('College added');
-    } catch (err: any) {
-      setCollegeFormError(err.message || 'Failed to create college');
-    } finally {
-      setCollegeSaving(false);
-    }
-  };
+  useEffect(() => {
+    fetchColleges();
+  }, []);
 
-  const handleUpdateCollege = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingCollege) return;
-    if (!collegeForm.name.trim() || !collegeForm.code.trim()) {
-      setCollegeFormError('Name and code are required');
-      return;
-    }
-    setCollegeFormError('');
-    setCollegeSaving(true);
-    try {
-      const res = await fetch(`${API_URL}/colleges/${editingCollege._id}`, {
-        method: 'PUT',
-        headers: authHeaders(),
-        body: JSON.stringify(collegeForm),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to update');
-      setEditingCollege(null);
-      setCollegeForm({ name: '', code: '', department: '', location: '' });
-      fetchColleges();
-      toast.success('College updated');
-    } catch (err: any) {
-      setCollegeFormError(err.message || 'Failed to update college');
-    } finally {
-      setCollegeSaving(false);
-    }
-  };
-
-  const handleDeleteCollege = async (id: string) => {
-    if (!confirm('Delete this college? This cannot be undone.')) return;
-    try {
-      await fetch(`${API_URL}/colleges/${id}`, { method: 'DELETE', headers: authHeaders() });
-      setColleges((prev) => prev.filter((c) => c._id !== id));
-      toast.success('College deleted');
-    } catch {
-      toast.error('Failed to delete college');
-    }
-  };
-
-  const handleToggleCollegeStatus = async (c: CollegeType) => {
-    try {
-      const res = await fetch(`${API_URL}/colleges/${c._id}`, {
-        method: 'PUT',
-        headers: authHeaders(),
-        body: JSON.stringify({ isActive: !c.isActive }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
-      setColleges((prev) => prev.map((x) => (x._id === c._id ? data : x)));
-      toast.success('Status updated');
-    } catch {
-      toast.error('Failed to update status');
-    }
-  };
-
-  // Derived from fetched colleges — no hardcoding
   const collegeOptions = useMemo(
     () => isSuperAdmin ? colleges.map((c) => c.code) : (assignedCollege ? [assignedCollege] : []),
     [colleges, isSuperAdmin, assignedCollege]
   );
 
-  // Set selectedCollege once colleges load
   useEffect(() => {
     if (collegeOptions.length > 0 && !selectedCollege) {
       setSelectedCollege(assignedCollege ?? collegeOptions[0]);
     }
   }, [collegeOptions]);
 
-  // Re-fetch summary whenever selected college changes (keeps counts fresh)
   useEffect(() => {
     if (selectedCollege) fetchSummary();
   }, [selectedCollege]);
@@ -364,7 +184,6 @@ export default function AdminDashboard() {
     fetchData();
   }, []);
 
-  // Fetch assignment names from Assignments table + TocDocuments + submissions
   useEffect(() => {
     setSelectedAssignment('');
 
@@ -383,21 +202,19 @@ export default function AdminDashboard() {
         let tocNames: string[] = [];
         if (tocRes.ok) tocNames = await tocRes.json();
 
-        let assignmentNames: string[] = [];
+        let assignmentNamesList: string[] = [];
         if (assignmentsRes.ok) {
           const data: AssignmentType[] = await assignmentsRes.json();
-          assignmentNames = data.map((a) => a.name);
+          assignmentNamesList = data.map((a) => a.name);
         }
 
-        // Also collect names from loaded submissions (covers submissions whose TOC was deleted)
         const submissionNames = submissions
           .filter((s) => s.college === selectedCollege && s.assignmentName)
           .map((s) => s.assignmentName as string);
 
-        const merged = [...new Set([...assignmentNames, ...tocNames, ...submissionNames])].sort();
+        const merged = [...new Set([...assignmentNamesList, ...tocNames, ...submissionNames])].sort();
         setAssignmentNames(merged);
       } catch {
-        // Fallback: compute solely from submissions
         const names = submissions
           .filter((s) => s.college === selectedCollege && s.assignmentName)
           .map((s) => s.assignmentName as string);
@@ -417,12 +234,10 @@ export default function AdminDashboard() {
   const inactiveBatchCount = collegeBatches.filter(b => b.status?.toLowerCase() !== 'active').length;
   const technicalCount = collegeBatches.filter(b => normalizeBatchType(b.type) === 'technical').length;
   const nonTechnicalCount = collegeBatches.filter(b => normalizeBatchType(b.type) === 'non-technical').length;
-  const unknownBatchCount = collegeBatches.filter(
-    (b) => {
-      const normalized = normalizeBatchType(b.type);
-      return normalized !== 'technical' && normalized !== 'non-technical';
-    }
-  ).length;
+  const unknownBatchCount = collegeBatches.filter((b) => {
+    const normalized = normalizeBatchType(b.type);
+    return normalized !== 'technical' && normalized !== 'non-technical';
+  }).length;
   const totalBatchCount = collegeBatches.length;
 
   const assignmentBatches = selectedAssignment
@@ -442,18 +257,11 @@ export default function AdminDashboard() {
 
     const submissionDate = new Date(submission.sessionDate);
 
-    if (startDate && !endDate) {
-      return submissionDate >= new Date(startDate);
-    }
-
-    if (!startDate && endDate) {
-      return submissionDate <= new Date(endDate);
-    }
+    if (startDate && !endDate) return submissionDate >= new Date(startDate);
+    if (!startDate && endDate) return submissionDate <= new Date(endDate);
 
     return submissionDate >= new Date(startDate) && submissionDate <= new Date(endDate);
   });
-
-  
 
   const reportSubmittedTo = 'Principal, Head of the Departments, Placements Training and Industry Relations, NMAM Institute Of Technology (NMAMIT), Nitte';
   const reportSubmittedBy = 'DLithe Consultancy Services Pvt. Ltd. Bengaluru';
@@ -632,7 +440,6 @@ export default function AdminDashboard() {
     )];
     const avgSessions = totalDays > 0 ? (filteredSubmissions.length / totalDays).toFixed(1) : '—';
 
-    // ── COVER ─────────────────────────────────────────────────────────────
     pdf.setFillColor(185, 28, 28);
     pdf.rect(0, 0, pw, 42, 'F');
     pdf.setFillColor(139, 18, 18);
@@ -649,12 +456,10 @@ export default function AdminDashboard() {
       pw / 2, 34, { align: 'center' }
     );
 
-    // Logo below banner, centered
     pdf.addImage(logoBase64, 'PNG', pw / 2 - 19, 44, 38, 14);
 
     let y = 64;
 
-    // ── 1. REPORT INFORMATION ─────────────────────────────────────────────
     secHead('1.  Report Information', y);
     y += 10;
     autoTable(pdf, {
@@ -678,7 +483,6 @@ export default function AdminDashboard() {
     });
     y = (pdf as any).lastAutoTable.finalY + 8;
 
-    // ── 2. EXECUTIVE SUMMARY ──────────────────────────────────────────────
     secHead('2.  Executive Summary', y);
     y += 10;
     autoTable(pdf, {
@@ -701,7 +505,6 @@ export default function AdminDashboard() {
       margin: { left: ml, right: mr },
     });
 
-    // ── 3. DETAILED SESSION COVERAGE (landscape) ──────────────────────────
     pdf.addPage('a4', 'landscape');
     const lpw = 297;
     const lml = 12;
@@ -733,9 +536,6 @@ export default function AdminDashboard() {
       margin: { left: lml, right: lmr },
     });
 
-    
-
-    // ── 5. RESOURCE LINKS ─────────────────────────────────────────────────
     secHead('5.  Resource Links', y);
     y += 10;
     pdf.setFontSize(9);
@@ -782,7 +582,6 @@ export default function AdminDashboard() {
       margin: { left: ml, right: mr },
     });
 
-    // ── 6. ATTENDANCE CHARTS (multi-day only) ─────────────────────────────
     if (hasMultipleDays()) {
       pdf.addPage('a4', 'portrait');
       pdf.setFillColor(185, 28, 28);
@@ -816,7 +615,6 @@ export default function AdminDashboard() {
       drawBarChart(pdf, trainerData, ml, y, cw, 55);
       y += 68;
 
-      // ── 7. ANALYTICS ────────────────────────────────────────────────────
       if (y > 230) { pdf.addPage('a4', 'portrait'); y = 15; }
       secHead('7.  Attendance Analytics', y);
       y += 10;
@@ -848,7 +646,6 @@ export default function AdminDashboard() {
       y = (pdf as any).lastAutoTable.finalY + 10;
     }
 
-    // ── 8 / 6. REMARKS ────────────────────────────────────────────────────
     const secN = hasMultipleDays() ? 8 : 6;
     if (y > 245) { pdf.addPage('a4', 'portrait'); y = 15; }
     secHead(`${secN}.  Remarks / Notes`, y);
@@ -865,7 +662,6 @@ export default function AdminDashboard() {
     pdf.text('•  Attendance maintained throughout the training period.', ml + 5, y + 25);
     y += 38;
 
-    // ── 9 / 7. SIGNATURES ─────────────────────────────────────────────────
     if (y > 255) { pdf.addPage('a4', 'portrait'); y = 15; }
     secHead(`${secN + 1}.  Signatures`, y);
     y += 10;
@@ -885,7 +681,6 @@ export default function AdminDashboard() {
       pdf.line(bx + 6, y + 20, bx + boxW - 6, y + 20);
     });
 
-    // ── FOOTER (all pages) ─────────────────────────────────────────────────
     const totalPages = pdf.getNumberOfPages();
     for (let pg = 1; pg <= totalPages; pg++) {
       pdf.setPage(pg);
@@ -1013,7 +808,6 @@ export default function AdminDashboard() {
       }),
       sp(),
 
-      
       H('5.  Resource Links', HeadingLevel.HEADING_1),
       new Paragraph({ children: [new TextRun({ text: 'A.  GitHub Repository Links', bold: true, size: 20 })] }),
       new Table({
@@ -1146,11 +940,6 @@ export default function AdminDashboard() {
     URL.revokeObjectURL(url);
   };
 
-
-  const collegeSummary = summary[selectedCollege];
-
-  const [attendanceSummaryLoading, setAttendanceSummaryLoading] = useState(false);
-
   const downloadAttendanceSummary = async () => {
     setAttendanceSummaryLoading(true);
     try {
@@ -1191,6 +980,8 @@ export default function AdminDashboard() {
     }
   };
 
+  const collegeSummary = summary[selectedCollege];
+
   return (
     <AdminLayout>
       <div className="mb-6 flex items-start justify-between">
@@ -1223,156 +1014,6 @@ export default function AdminDashboard() {
           </button>
         </div>
       )}
-
-
-      {/* ── TAB NAV ── */}
-      <div className="flex border-b border-border mb-6">
-        {(['submissions', ...(isSuperAdmin ? ['assignments', 'colleges'] : [])] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab as typeof activeTab)}
-            className={`px-5 py-2.5 text-sm capitalize border-b-2 transition-colors ${
-              activeTab === tab
-                ? 'border-red-700 text-red-700'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
-
-      {/* ── ASSIGNMENTS TAB ── */}
-      {activeTab === 'assignments' && isSuperAdmin && (
-        <div>
-          {/* Add form */}
-          <div className="bg-card border border-border p-6 mb-6">
-            <h2 className="text-card-foreground font-medium mb-4">Add New Assignment</h2>
-            <form onSubmit={handleCreateAssignment} className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label className="block text-xs text-muted-foreground mb-1">Assignment Name *</label>
-                <input
-                  type="text"
-                  value={assignmentForm.name}
-                  onChange={(e) => setAssignmentForm((p) => ({ ...p, name: e.target.value }))}
-                  placeholder="e.g. DSA Batch 2026"
-                  className="w-full px-3 py-2 border border-border text-sm focus:outline-none focus:border-primary"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-muted-foreground mb-1">College *</label>
-                <select
-                  value={assignmentForm.college}
-                  onChange={(e) => setAssignmentForm((p) => ({ ...p, college: e.target.value }))}
-                  className="w-full px-3 py-2 border border-border text-sm focus:outline-none focus:border-primary"
-                >
-                  {collegeOptions.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs text-muted-foreground mb-1">Start Date</label>
-                <input
-                  type="date"
-                  value={assignmentForm.startDate}
-                  onChange={(e) => setAssignmentForm((p) => ({ ...p, startDate: e.target.value }))}
-                  className="w-full px-3 py-2 border border-border text-sm focus:outline-none focus:border-primary"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-muted-foreground mb-1">End Date</label>
-                <input
-                  type="date"
-                  value={assignmentForm.endDate}
-                  onChange={(e) => setAssignmentForm((p) => ({ ...p, endDate: e.target.value }))}
-                  className="w-full px-3 py-2 border border-border text-sm focus:outline-none focus:border-primary"
-                />
-              </div>
-              {assignmentFormError && (
-                <p className="md:col-span-2 text-sm text-red-600">{assignmentFormError}</p>
-              )}
-              <div className="md:col-span-2">
-                <button
-                  type="submit"
-                  disabled={assignmentSaving}
-                  className="px-6 py-2 bg-primary text-primary-foreground text-sm hover:bg-primary/90 disabled:opacity-60 flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  {assignmentSaving ? 'Adding...' : 'Add Assignment'}
-                </button>
-              </div>
-            </form>
-          </div>
-
-          {/* List */}
-          <div className="bg-card border border-border">
-            <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                {filteredAssignments.length} assignment{filteredAssignments.length !== 1 ? 's' : ''}
-              </p>
-              <div className="flex gap-1">
-                {(['all', 'active', 'inactive'] as const).map((f) => (
-                  <button
-                    key={f}
-                    type="button"
-                    onClick={() => setAssignmentFilter(f)}
-                    className={`px-3 py-1 text-xs border transition-colors ${
-                      assignmentFilter === f
-                        ? 'border-primary text-primary bg-primary/5'
-                        : 'border-border text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    {f.charAt(0).toUpperCase() + f.slice(1)}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {assignmentsLoading ? (
-              <div className="px-6 py-12 text-center text-sm text-muted-foreground">Loading...</div>
-            ) : filteredAssignments.length === 0 ? (
-              <div className="px-6 py-12 text-center text-sm text-muted-foreground">No assignments found</div>
-            ) : (
-              <div className="divide-y divide-border">
-                {filteredAssignments.map((a) => (
-                  <div key={a._id} className="flex items-center justify-between px-6 py-4">
-                    <div className="flex items-center gap-4">
-                      <div>
-                        <p className="text-sm text-card-foreground font-medium">{a.name}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {a.college}
-                          {a.startDate && ` · from ${new Date(a.startDate).toLocaleDateString()}`}
-                          {a.endDate && ` to ${new Date(a.endDate).toLocaleDateString()}`}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleAssignment(a)}
-                        className={`px-2 py-0.5 text-xs border rounded transition-colors ${
-                          a.isActive
-                            ? 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100'
-                            : 'border-zinc-300 text-zinc-500 bg-zinc-50 hover:bg-zinc-100'
-                        }`}
-                      >
-                        {a.isActive ? 'Active' : 'Inactive'}
-                      </button>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteAssignment(a._id)}
-                      className="p-1.5 text-muted-foreground hover:text-red-600 transition-colors"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ── SUBMISSIONS TAB ── */}
-      {activeTab === 'submissions' && <>
 
       {/* College selector + summary card */}
       <div className="bg-card border border-border p-6 mb-6">
@@ -1448,7 +1089,6 @@ export default function AdminDashboard() {
           <h2 className="text-card-foreground">Filters</h2>
         </div>
 
-        {/* Assignment + Batch filter row */}
         <div className="grid gap-4 md:grid-cols-2 mb-4">
           <div>
             <label className="block text-sm text-foreground mb-2">Assignment Name</label>
@@ -1488,7 +1128,6 @@ export default function AdminDashboard() {
           )}
         </div>
 
-        {/* Batch filter row */}
         <div className="grid gap-4 md:grid-cols-2 mb-4">
           <div>
             <label className="block text-sm text-foreground mb-2">Batch Name</label>
@@ -1505,7 +1144,6 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Date filter row */}
         <div className="flex gap-4 items-end">
           <div className="flex-1">
             <label className="block text-sm text-foreground mb-2">Start Date</label>
@@ -1668,196 +1306,6 @@ export default function AdminDashboard() {
           </table>
         </div>
       </div>
-
-      </>}
-
-      {/* ── COLLEGES TAB ── */}
-      {activeTab === 'colleges' && (
-        <div>
-          {/* Add / Edit form — super admin only */}
-          {isSuperAdmin && (
-            <div className="bg-card border border-border p-6 mb-6">
-              <h2 className="text-card-foreground font-medium mb-4">
-                {editingCollege ? 'Edit College' : 'Add New College'}
-              </h2>
-              <form
-                onSubmit={editingCollege ? handleUpdateCollege : handleCreateCollege}
-                className="grid gap-4 md:grid-cols-2"
-              >
-                <div>
-                  <label className="block text-xs text-muted-foreground mb-1">College Name *</label>
-                  <input
-                    type="text"
-                    value={collegeForm.name}
-                    onChange={(e) => setCollegeForm((p) => ({ ...p, name: e.target.value }))}
-                    placeholder="e.g. NMAMIT Nitte"
-                    className="w-full px-3 py-2 border border-border text-sm focus:outline-none focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-muted-foreground mb-1">Code *</label>
-                  <input
-                    type="text"
-                    value={collegeForm.code}
-                    onChange={(e) => setCollegeForm((p) => ({ ...p, code: e.target.value.toUpperCase() }))}
-                    placeholder="e.g. NMAMIT-NITTE-ENG"
-                    className="w-full px-3 py-2 border border-border text-sm focus:outline-none focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-muted-foreground mb-1">Department</label>
-                  <select
-                    value={collegeForm.department}
-                    onChange={(e) => setCollegeForm((p) => ({ ...p, department: e.target.value }))}
-                    className="w-full px-3 py-2 border border-border text-sm focus:outline-none focus:border-primary"
-                  >
-                    <option value="">Select department</option>
-                    <option value="ENG">Engineering (ENG)</option>
-                    <option value="MCA">MCA</option>
-                    <option value="POLY">Polytechnic (POLY)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-muted-foreground mb-1">Location</label>
-                  <input
-                    type="text"
-                    value={collegeForm.location}
-                    onChange={(e) => setCollegeForm((p) => ({ ...p, location: e.target.value }))}
-                    placeholder="e.g. Mangalore"
-                    className="w-full px-3 py-2 border border-border text-sm focus:outline-none focus:border-primary"
-                  />
-                </div>
-                {collegeFormError && (
-                  <p className="md:col-span-2 text-sm text-red-600">{collegeFormError}</p>
-                )}
-                <div className="md:col-span-2 flex gap-2">
-                  <button
-                    type="submit"
-                    disabled={collegeSaving}
-                    className="px-6 py-2 bg-primary text-primary-foreground text-sm hover:bg-primary/90 disabled:opacity-60 flex items-center gap-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    {collegeSaving ? 'Saving...' : editingCollege ? 'Update College' : 'Add College'}
-                  </button>
-                  {editingCollege && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingCollege(null);
-                        setCollegeForm({ name: '', code: '', department: '', location: '' });
-                        setCollegeFormError('');
-                      }}
-                      className="px-4 py-2 border border-border text-sm text-muted-foreground hover:text-foreground"
-                    >
-                      Cancel
-                    </button>
-                  )}
-                </div>
-              </form>
-            </div>
-          )}
-
-          {/* Colleges table */}
-          <div className="bg-card border border-border">
-            <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-              <p className="text-sm font-medium text-card-foreground">Registered Colleges</p>
-              <p className="text-xs text-muted-foreground">{colleges.length} total</p>
-            </div>
-            {collegesLoading ? (
-              <div className="px-6 py-12 text-center text-sm text-muted-foreground">Loading...</div>
-            ) : colleges.length === 0 ? (
-              <div className="px-6 py-12 text-center text-sm text-muted-foreground">No colleges found</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground">Code</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground">Name</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground">Dept</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground">Location</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground">Status</th>
-                      {isSuperAdmin && (
-                        <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground">Actions</th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {colleges.map((c) => (
-                      <tr key={c._id} className="hover:bg-muted/30 transition-colors">
-                        <td className="px-6 py-4 font-mono text-xs text-card-foreground">{c.code}</td>
-                        <td className="px-6 py-4 text-card-foreground">{c.name}</td>
-                        <td className="px-6 py-4 text-muted-foreground">{c.department || '—'}</td>
-                        <td className="px-6 py-4 text-muted-foreground">{c.location || '—'}</td>
-                        <td className="px-6 py-4">
-                          {isSuperAdmin ? (
-                            <button
-                              type="button"
-                              onClick={() => handleToggleCollegeStatus(c)}
-                              className={`px-2 py-0.5 text-xs border rounded transition-colors ${
-                                c.isActive
-                                  ? 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100'
-                                  : 'border-zinc-300 text-zinc-500 bg-zinc-50 hover:bg-zinc-100'
-                              }`}
-                            >
-                              {c.isActive ? 'Active' : 'Inactive'}
-                            </button>
-                          ) : (
-                            <span className={`px-2 py-0.5 text-xs border rounded ${
-                              c.isActive
-                                ? 'border-green-300 text-green-700 bg-green-50'
-                                : 'border-zinc-300 text-zinc-500 bg-zinc-50'
-                            }`}>
-                              {c.isActive ? 'Active' : 'Inactive'}
-                            </span>
-                          )}
-                        </td>
-                        {isSuperAdmin && (
-                          <td className="px-6 py-4 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingCollege(c);
-                                  setCollegeForm({
-                                    name: c.name,
-                                    code: c.code,
-                                    department: c.department || '',
-                                    location: c.location || '',
-                                  });
-                                  setCollegeFormError('');
-                                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                                }}
-                                className="p-1.5 text-muted-foreground hover:text-primary transition-colors"
-                                title="Edit"
-                              >
-                                <FileText className="w-4 h-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteCollege(c._id)}
-                                className="p-1.5 text-muted-foreground hover:text-red-600 transition-colors"
-                                title="Delete"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </AdminLayout>
   );
 }
-
-
-
-
-
