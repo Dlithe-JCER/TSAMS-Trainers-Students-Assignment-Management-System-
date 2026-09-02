@@ -49,7 +49,7 @@ Students → Batch → Trainer
               ↓
       Training Reports
 
-      <div align="center">
+   
 
 # Training Management & Daily Coverage Tracking System
 
