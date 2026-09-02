@@ -49,10 +49,6 @@ Students → Batch → Trainer
               ↓
       Training Reports
 
-   
-
-# Training Management & Daily Coverage Tracking System
-
 <p>
   <strong>A centralized platform for managing trainers, students, batches, classrooms, training agendas, daily coverage, assignments, and submissions.</strong>
 </p>
